@@ -80,6 +80,11 @@ interface JobHooks {
    * job has one consuming cursor.
    */
   readOutput?(): string
+  /**
+   * Optional metadata-only progress source. The registry subscribes once after registration,
+   * publishes the latest snapshot through {@link JobSnapshot.progress}, and disposes at settlement.
+   */
+  subscribeProgress?: JobProgressSubscriber
 }
 ```
 
@@ -97,7 +102,7 @@ interface JobOutcome {
 
 ## Consumer views
 
-Snapshots are fresh read-only projections. `ownerSession` carries the shared `SessionId` used for authorization; completion listeners separately receive the exact owner object used for lifecycle cleanup. `reported` suppresses a completion notice after another reporter has delivered or committed to deliver the terminal state, including the teardown cancel that drains an owner or the service.
+Snapshots are fresh read-only projections. Optional metadata-only `progress` is registry-stamped, and settled snapshots expose monotonic `durationMs`. `ownerSession` carries the shared `SessionId` used for authorization; completion listeners separately receive the exact owner object used for lifecycle cleanup. `reported` suppresses a completion notice after another reporter has delivered or committed to deliver the terminal state, including the teardown cancel that drains an owner or the service.
 
 ```ts type-equiv
 /**
@@ -123,10 +128,14 @@ interface JobSnapshot {
   status: JobStatus
   /** Kind-specific status detail, present once the producer supplied one (usually terminal). */
   detail?: string
+  /** Latest metadata-only producer progress, when the producer exposes one. */
+  progress?: JobProgress
   /** Epoch ms when the job was registered. */
   startedAt: number
   /** Epoch ms when the job settled; absent while `running`/`stopping`. */
   finishedAt?: number
+  /** Monotonic elapsed milliseconds, present exactly after settlement. */
+  durationMs?: number
   /**
    * True when a kill, read, wait, or teardown cancel has reported or committed
    * to report the terminal state. Completion reporters suppress redundant

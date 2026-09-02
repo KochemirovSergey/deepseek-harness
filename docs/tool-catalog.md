@@ -18,6 +18,7 @@ This table connects model-visible tool names to the plugin package and service s
 | `@deepseek-ai/dsh-tool-ask-user` | `ask_user_question` | `ctx.tools`, `ctx.userQuestions` | `tool/call`, `tool/result after a UI/provider answers the question` | - | ask_user_question pauses the tool call until the active UI provider returns a human answer. |
 | `@deepseek-ai/dsh-tools` | `run_code` | `ctx.tools`, `ctx.codeRuntime (execution time)`, `ctx.systemPrompt` | `tool/call`, `one tool/code-dispatch-start + tool/code-dispatch pair per bridged sub-call`, `tool/result` | - | Owned by the tool registry as a reserved transport outside filterable capability layers under `mode: code` / `mode: both` (see the Code Mode Agent Note). Under `code` it is the registry's only wire contribution; the other visible capabilities are declared in a generated SDK section in the loaded runtime's language, and a program calls them through bindings scheduled under the native concurrency contract (submission-ordered starts and policy; concurrency-safe bodies overlap up to `maxParallelSubCalls`) that re-enter the complete guarded tool pipeline and link each nested execution to this outer result. |
 | `@deepseek-ai/dsh-plan-mode` | `exit_plan_mode` | `ctx.tools`, `ctx.systemPrompt`, `ctx.userQuestions (execution time, opportunistic)` | `tool/call`, `plan/mode inactive on an approved review`, `tool/result` | - | exit_plan_mode stays in the model-facing schema while planning is inactive so transitions add no tool-catalog churn on top of the plan-policy change. Its execute path rejects calls outside plan mode; in plan mode it presents the plan over the user-questions seam (approve / keep planning with feedback), and approval logs plan mode inactive at the step boundary. |
+| `@deepseek-ai/dsh-planning-review` | `planning_apply_proposal`, `planning_review_proposal` | `ctx.tools`, `ctx.agents`, `ctx.planning`, `ctx.userQuestions`, `a registered source adapter and calling Agent at execution time` | `tool/call`, `planning/change proposal decisions`, `source adapter transaction after exact approval`, `tool/result` | - | planning_review_proposal requires a full JSON proposal and an explicit plan-review UI answer; planning_apply_proposal rechecks its exact hash, Session, and durable review id before invoking a named deployment adapter. |
 | `@deepseek-ai/dsh-tool-bash` | `bash` | `ctx.tools`, `ctx.shell`, `ctx.systemPrompt`, `ctx.shellEnv`, `ctx.jobs at call time for run_in_background` | `tool/call`, `tool/result` | - | The bash tool is the model-facing consumer of the bash executor seam. A `run_in_background` run registers with the generic `ctx.jobs` runtime and is collected/stopped through the `job_*` tools from `@deepseek-ai/dsh-tool-jobs`; the `enableRunInBackground` config (default true) removes the parameter entirely when disabled. |
 | `@deepseek-ai/dsh-tool-pwsh` | `pwsh` | `ctx.tools`, `ctx.shell`, `ctx.systemPrompt`, `ctx.shellEnv`, `ctx.jobs at call time for run_in_background` | `tool/call`, `tool/result` | - | The pwsh tool is the PowerShell-dialect consumer of the bash executor seam for Windows compositions (a PowerShell executor such as `@deepseek-ai/dsh-pwsh-local` backs `ctx.shell`); it mirrors the bash tool call-for-call minus sandbox controls — `run_in_background` runs register with the generic `ctx.jobs` runtime and are collected/stopped through the `job_*` tools, and the managed `DSH_*` environment comes from `@deepseek-ai/dsh-shell-env`. Each call runs in a fresh process (no persistent PTY session), with native `C:\...` paths and `$env:NAME` variables. |
 | `@deepseek-ai/dsh-tool-cordis` | `cordis_define`, `cordis_inspect_list`, `cordis_inspect_query`, `cordis_inspect_self`, `cordis_run`, `cordis_stop`, `cordis_undefine` | `ctx.tools`, `ctx.dynamicCordisRunner` | `tool/call`, `tool/result`, `process-local dynamic package lifecycle` | - | Not in any shipped tree (a deliberate opt-in — dynamic package code reaches the real runtime, see .agents/notes/implemented/feature/2026-07-08-self-referential-cordis-toolset.md). The toolset injects `ctx.dynamicCordisRunner` from `@deepseek-ai/dsh-cordis-host-runner`, which owns the definition registry and the vm sandbox; a composition missing it never activates the tools. A running package may register ADDITIONAL model-visible tools until it is stopped, undefined, or DSH restarts; a full changed request header logs those tool-set changes. |
@@ -28,6 +29,7 @@ This table connects model-visible tool names to the plugin package and service s
 | `@deepseek-ai/dsh-tool-fs-search` | `glob`, `grep` | `ctx.tools`, `ctx.subprocess`, `ctx.systemPrompt` | `tool/call`, `tool/result` | - | glob and grep are unconditional discovery tools that spawn the packaged ripgrep binary (`@vscode/ripgrep`) through ctx.subprocess as ordinary foreground calls (never background jobs) — no host `rg` install and no shell layer. The catalog uses `sampleOverCapGlobResults: true`; deployments must choose that behavior explicitly. Capped results save the complete formatted list through the optional ctx.spillStore backend; returned locators are follow-up-readable/searchable when the backend exposes local paths in co-located deployments. |
 | `@deepseek-ai/dsh-tool-terminal` | `terminal_close`, `terminal_list`, `terminal_open`, `terminal_read`, `terminal_send`, `terminal_signal` | `ctx.tools`, `ctx.terminals`, `ctx.systemPrompt`, `ctx.jobs at call time for run_in_background` | `tool/call`, `tool/result` | - | The six terminal tools are opt-in and complement one-shot shell/filesystem tools. `terminal_send(run_in_background: true)` registers with `ctx.jobs`; TUI, named key sequences, BEL, resize, auto-start, and cross-agent sharing are absent from the schema. |
 | `@deepseek-ai/dsh-tool-goal` | `create_goal`, `get_goal`, `update_goal` | `ctx.tools`, `ctx.agents`, `ctx.goals`, `ctx.systemPrompt`, `a calling Agent in an authorized open turn` | `tool/call`, `goal/change for mutations`, `tool/result` | - | create, edit, pause, and resume require direct-human root authority; complete and blocked also accept the exact current goal round. The default blocked lower bound is three admitted rounds. |
+| `@deepseek-ai/dsh-tool-planning` | `planning_create_portfolio`, `planning_finish_attempt`, `planning_finish_slice`, `planning_start_attempt`, `planning_start_slice`, `planning_status` | `ctx.tools`, `ctx.agents`, `ctx.planning`, `a calling Agent` | `tool/call`, `planning/change portfolio, attempt, and slice transitions`, `tool/result` | - | The six lifecycle tools can materialize only the exact human-approved proposal revision; they recommend and record work but cannot approve proposals or reorder source authority. |
 | `@deepseek-ai/dsh-schedule` | `schedule_create`, `schedule_delete`, `schedule_list` | `ctx.tools`, `ctx.sessions`, `Session persistence`, `a future live root Agent` | `tool/call`, `schedule/change create or delete`, `tool/result` | - | Registered only inside live root Agent scopes created after the opt-in Schedule plugin loads. Version 1 accepts after_seconds, explicit absolute at, and bounded fixed-rate every_seconds, and discloses session-local delivery; management reads and mutations require the shared Session persistence barrier. |
 | `@deepseek-ai/dsh-tool-lsp` | `lsp` | `ctx.tools`, `ctx.lsp`, `ctx.systemPrompt` | `tool/call`, `tool/result` | - | The lsp tool keeps provider selection and language-server subprocesses behind ctx.lsp, so its model-visible schema stays stable across providers. Requires a registered provider (e.g. `@deepseek-ai/dsh-lsp-stdio`) at runtime; without one, a query returns the structured `LSP_UNAVAILABLE` error rather than changing the schema. |
 | `@deepseek-ai/dsh-tool-ralph` | `ralph` | `ctx.tools`, `ctx.workflowEngine`, `ctx.subagents`, `ctx.systemPrompt`, `a calling Agent (exec.agent parents every fresh round)` | `tool/call`, `tool/result`, `workflow and child session events during execution` | - | A fixed foreground workflow starts one fresh structured child per round; the model selects only the immutable objective and an optional round cap. |
@@ -174,6 +176,68 @@ Use only in plan mode. Present your plan for the user's review and, on approval,
 Source: [`packages/plan/plan-mode/src/index.ts`](../packages/plan/plan-mode/src/index.ts)
 
 exit_plan_mode stays in the model-facing schema while planning is inactive so transitions add no tool-catalog churn on top of the plan-policy change. Its execute path rejects calls outside plan mode; in plan mode it presents the plan over the user-questions seam (approve / keep planning with feedback), and approval logs plan mode inactive at the step boundary.
+
+<a id="deepseek-aidsh-planning-review"></a>
+
+## `@deepseek-ai/dsh-planning-review`
+
+### `planning_apply_proposal`
+
+Apply an exact proposal through its registered source adapter. Requires the durable approval artifact returned by planning_review_proposal.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "source": {
+      "type": "string"
+    },
+    "proposal_json": {
+      "type": "string"
+    },
+    "approval_json": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "source",
+    "proposal_json",
+    "approval_json"
+  ]
+}
+```
+
+Source: [`packages/planning/planning-review/src/index.ts`](../packages/planning/planning-review/src/index.ts)
+
+### `planning_review_proposal`
+
+Submit a complete planning proposal JSON document for exact-hash human review. Ordinary chat approval is not accepted.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "source": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "proposal_json": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "source",
+    "summary",
+    "proposal_json"
+  ]
+}
+```
+
+Source: [`packages/planning/planning-review/src/index.ts`](../packages/planning/planning-review/src/index.ts)
+
+planning_review_proposal requires a full JSON proposal and an explicit plan-review UI answer; planning_apply_proposal rechecks its exact hash, Session, and durable review id before invoking a named deployment adapter.
 
 <a id="deepseek-aidsh-tool-bash"></a>
 
@@ -1060,6 +1124,330 @@ Update the exact current goal revision. edit, pause, and resume require a direct
 Source: [`packages/goal/tool-goal/src/index.ts`](../packages/goal/tool-goal/src/index.ts)
 
 create, edit, pause, and resume require direct-human root authority; complete and blocked also accept the exact current goal round. The default blocked lower bound is three admitted rounds.
+
+<a id="deepseek-aidsh-tool-planning"></a>
+
+## `@deepseek-ai/dsh-tool-planning`
+
+### `planning_create_portfolio`
+
+Create one 120-minute portfolio from the exact durable proposal approval. The service rejects conversational or stale approval.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "proposal_id": {
+      "type": "string"
+    },
+    "proposal_revision": {
+      "type": "number"
+    },
+    "proposal_sha256": {
+      "type": "string"
+    },
+    "load_target": {
+      "type": "number",
+      "description": "Must be between 0.60 and 0.70."
+    },
+    "reserve_minutes": {
+      "type": "number"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "feature_id": {
+            "type": "string"
+          },
+          "contract_sha256": {
+            "type": "string"
+          },
+          "position": {
+            "type": "number"
+          },
+          "work_class": {
+            "type": "string"
+          },
+          "work_tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "risk_level": {
+            "type": "string",
+            "enum": [
+              "R0",
+              "R1",
+              "R2",
+              "R3"
+            ]
+          },
+          "p50_minutes": {
+            "type": "number",
+            "description": "Median duration estimate in minutes."
+          },
+          "p90_minutes": {
+            "type": "number",
+            "description": "Conservative duration estimate in minutes; must be at least p50."
+          },
+          "confidence": {
+            "type": "string",
+            "description": "Evidence confidence.",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "estimate_basis": {
+            "type": "string",
+            "description": "Short explanation or cohort/prior reference."
+          }
+        },
+        "required": [
+          "feature_id",
+          "contract_sha256",
+          "position",
+          "work_class",
+          "work_tags",
+          "risk_level",
+          "p50_minutes",
+          "p90_minutes",
+          "confidence",
+          "estimate_basis"
+        ]
+      }
+    }
+  },
+  "required": [
+    "proposal_id",
+    "proposal_revision",
+    "proposal_sha256",
+    "load_target",
+    "reserve_minutes",
+    "entries"
+  ]
+}
+```
+
+Source: [`packages/planning/tool-planning/src/index.ts`](../packages/planning/tool-planning/src/index.ts)
+
+### `planning_finish_attempt`
+
+Close the exact running feature attempt with verifier, intervention, scope, and terminal outcome facts.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "attempt_id": {
+      "type": "string"
+    },
+    "revision": {
+      "type": "number"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "passing",
+        "failed",
+        "blocked",
+        "timed_out",
+        "cancelled",
+        "scope_changed",
+        "interrupted",
+        "unknown"
+      ]
+    },
+    "verifier_result": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "unknown"
+      ]
+    },
+    "manual_intervention": {
+      "type": "string",
+      "enum": [
+        "none",
+        "present",
+        "unknown"
+      ]
+    },
+    "scope_status": {
+      "type": "string",
+      "enum": [
+        "within",
+        "violated",
+        "unknown"
+      ]
+    }
+  },
+  "required": [
+    "attempt_id",
+    "revision",
+    "outcome",
+    "verifier_result",
+    "manual_intervention",
+    "scope_status"
+  ]
+}
+```
+
+Source: [`packages/planning/tool-planning/src/index.ts`](../packages/planning/tool-planning/src/index.ts)
+
+### `planning_finish_slice`
+
+Close the exact running execution slice with a terminal outcome.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "slice_id": {
+      "type": "string"
+    },
+    "revision": {
+      "type": "number"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "passing",
+        "failed",
+        "blocked",
+        "timed_out",
+        "cancelled",
+        "scope_changed",
+        "interrupted",
+        "unknown"
+      ]
+    }
+  },
+  "required": [
+    "slice_id",
+    "revision",
+    "outcome"
+  ]
+}
+```
+
+Source: [`packages/planning/tool-planning/src/index.ts`](../packages/planning/tool-planning/src/index.ts)
+
+### `planning_start_attempt`
+
+Start the next attempt for one feature in the approved portfolio. Only one feature attempt may run.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "portfolio_id": {
+      "type": "string"
+    },
+    "feature_id": {
+      "type": "string"
+    },
+    "contract_sha256": {
+      "type": "string"
+    },
+    "p50_minutes": {
+      "type": "number",
+      "description": "Median duration estimate in minutes."
+    },
+    "p90_minutes": {
+      "type": "number",
+      "description": "Conservative duration estimate in minutes; must be at least p50."
+    },
+    "confidence": {
+      "type": "string",
+      "description": "Evidence confidence.",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "estimate_basis": {
+      "type": "string",
+      "description": "Short explanation or cohort/prior reference."
+    }
+  },
+  "required": [
+    "portfolio_id",
+    "feature_id",
+    "contract_sha256",
+    "p50_minutes",
+    "p90_minutes",
+    "confidence",
+    "estimate_basis"
+  ]
+}
+```
+
+Source: [`packages/planning/tool-planning/src/index.ts`](../packages/planning/tool-planning/src/index.ts)
+
+### `planning_start_slice`
+
+Start one execution slice under the running feature attempt. Target 5-15 minutes; explain any exception.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "attempt_id": {
+      "type": "string"
+    },
+    "objective": {
+      "type": "string"
+    },
+    "allowlist": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "expected_result": {
+      "type": "string"
+    },
+    "budget_minutes": {
+      "type": "number"
+    },
+    "budget_exception_reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "attempt_id",
+    "objective",
+    "allowlist",
+    "expected_result",
+    "budget_minutes"
+  ]
+}
+```
+
+Source: [`packages/planning/tool-planning/src/index.ts`](../packages/planning/tool-planning/src/index.ts)
+
+### `planning_status`
+
+Read the current adaptive-planning proposal, approved portfolio, attempts, slices, and observation counts.
+
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+Source: [`packages/planning/tool-planning/src/index.ts`](../packages/planning/tool-planning/src/index.ts)
+
+The six lifecycle tools can materialize only the exact human-approved proposal revision; they recommend and record work but cannot approve proposals or reorder source authority.
 
 <a id="deepseek-aidsh-schedule"></a>
 

@@ -535,6 +535,30 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
 
 来源：[`packages/plan/plan-mode/src/index.ts:53`](../packages/plan/plan-mode/src/index.ts)
 
+### `planning/*`
+
+<a id="planningchange--log-only"></a>
+
+#### `planning/change` — 仅日志
+
+```ts persistence-catalog
+/** Records one complete versioned proposal, portfolio, attempt, or slice lifecycle snapshot. */
+'planning/change': PlanningEvent
+```
+
+来源：[`packages/planning/planning/src/types.ts:220`](../packages/planning/planning/src/types.ts)
+
+<a id="planningobservation--log-only"></a>
+
+#### `planning/observation` — 仅日志
+
+```ts persistence-catalog
+/** Records one metadata-only causal execution observation for calibration and trace analysis. */
+'planning/observation': PlanningObservationEvent
+```
+
+来源：[`packages/planning/planning/src/types.ts:222`](../packages/planning/planning/src/types.ts)
+
 ### `request/*`
 
 <a id="requestcontext--log-only"></a>

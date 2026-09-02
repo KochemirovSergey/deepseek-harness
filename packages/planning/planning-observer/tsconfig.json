@@ -1,0 +1,14 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {"rootDir": "src", "outDir": "lib/types"},
+  "include": ["src"],
+  "references": [
+    {"path": "../../../vendor/cosmokit"},
+    {"path": "../../../vendor/cordis"},
+    {"path": "../../core/agent"},
+    {"path": "../../jobs/jobs"},
+    {"path": "../../subagent/subagent"},
+    {"path": "../planning"},
+    {"path": "../../runtime-diagnostics/invariants"}
+  ]
+}

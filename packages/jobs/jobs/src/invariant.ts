@@ -27,6 +27,23 @@ function validateSnapshot(snapshot: JobSnapshot, owner: Agent | undefined, fail:
     fail(`job ${JSON.stringify(id)} startedAt must be a non-negative epoch integer`)
   }
 
+  const progress = snapshot.progress
+  if (progress !== undefined) {
+    if (!Number.isSafeInteger(progress.updatedAt) || progress.updatedAt < snapshot.startedAt) {
+      fail(`job ${JSON.stringify(id)} progress updatedAt must be an epoch integer no earlier than startedAt`)
+    }
+    if (progress.completedUnits !== undefined && (!Number.isFinite(progress.completedUnits) || progress.completedUnits < 0)) {
+      fail(`job ${JSON.stringify(id)} progress completedUnits must be non-negative`)
+    }
+    if (progress.totalUnits !== undefined && (!Number.isFinite(progress.totalUnits) || progress.totalUnits <= 0)) {
+      fail(`job ${JSON.stringify(id)} progress totalUnits must be positive`)
+    }
+    if (progress.completedUnits !== undefined && progress.totalUnits !== undefined
+      && progress.completedUnits > progress.totalUnits) {
+      fail(`job ${JSON.stringify(id)} progress cannot exceed totalUnits`)
+    }
+  }
+
   const terminal = TERMINAL_STATUSES.has(snapshot.status)
   if (terminal !== (snapshot.finishedAt !== undefined)) {
     fail(`job ${JSON.stringify(id)} finishedAt must be present exactly for a terminal status`)
@@ -34,6 +51,12 @@ function validateSnapshot(snapshot: JobSnapshot, owner: Agent | undefined, fail:
   if (snapshot.finishedAt !== undefined
     && (!Number.isSafeInteger(snapshot.finishedAt) || snapshot.finishedAt < snapshot.startedAt)) {
     fail(`job ${JSON.stringify(id)} finishedAt must be an epoch integer no earlier than startedAt`)
+  }
+  if (terminal !== (snapshot.durationMs !== undefined)) {
+    fail(`job ${JSON.stringify(id)} durationMs must be present exactly for a terminal status`)
+  }
+  if (snapshot.durationMs !== undefined && (!Number.isFinite(snapshot.durationMs) || snapshot.durationMs < 0)) {
+    fail(`job ${JSON.stringify(id)} durationMs must be non-negative monotonic elapsed time`)
   }
 
   const expectedOwner = owner?.id

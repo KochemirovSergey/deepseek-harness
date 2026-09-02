@@ -1135,6 +1135,135 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'planning',
+    summary: 'Planning state owned by the exact live agent\'s Session log.',
+    description: 'Planning state owned by the exact live agent\'s Session log.',
+    methods: [
+      {
+        signature: 'get(agent: Agent): PlanningView',
+        description: 'Read current durable planning state.',
+        parameters: [{ name: 'agent', description: 'Exact live owner.' }],
+        returns: 'Replayed planning view for its Session.',
+      },
+      {
+        signature: 'stageProposal(agent: Agent, request: StageProposalRequest): PlanningProposalSnapshot',
+        description: 'Stage one immutable proposal.',
+        parameters: [{ name: 'agent', description: 'Exact live owner.' }, { name: 'request', description: 'Immutable proposal identity.' }],
+        returns: 'Staged revision.',
+      },
+      {
+        signature: 'decideProposal(agent: Agent, request: DecideProposalRequest): PlanningProposalSnapshot',
+        description: 'Decide the exact current proposal revision.',
+        parameters: [{ name: 'agent', description: 'Exact live owner.' }, { name: 'request', description: 'Exact revision/hash decision.' }],
+        returns: 'Advanced proposal.',
+      },
+      {
+        signature: 'createPortfolio(agent: Agent, request: CreatePortfolioRequest): PortfolioSnapshot',
+        description: 'Materialize an approved capacity plan.',
+        parameters: [{ name: 'agent', description: 'Exact live owner.' }, { name: 'request', description: 'Approved capacity plan.' }],
+        returns: 'Created portfolio.',
+      },
+      {
+        signature: 'startAttempt(agent: Agent, request: StartAttemptRequest): FeatureAttemptSnapshot',
+        description: 'Start one portfolio feature attempt.',
+        parameters: [{ name: 'agent', description: 'Exact live owner.' }, { name: 'request', description: 'Portfolio feature attempt.' }],
+        returns: 'Running attempt.',
+      },
+      {
+        signature: 'finishAttempt(agent: Agent, request: FinishAttemptRequest): FeatureAttemptSnapshot',
+        description: 'Close the exact running feature attempt.',
+        parameters: [{ name: 'agent', description: 'Exact live owner.' }, { name: 'request', description: 'Terminal attempt facts.' }],
+        returns: 'Terminal attempt.',
+      },
+      {
+        signature: 'startSlice(agent: Agent, request: StartSliceRequest): ExecutionSliceSnapshot',
+        description: 'Start one bounded execution slice.',
+        parameters: [{ name: 'agent', description: 'Exact live owner.' }, { name: 'request', description: 'Bounded execution slice.' }],
+        returns: 'Running slice.',
+      },
+      {
+        signature: 'finishSlice(agent: Agent, request: FinishSliceRequest): ExecutionSliceSnapshot',
+        description: 'Close the exact running execution slice.',
+        parameters: [{ name: 'agent', description: 'Exact live owner.' }, { name: 'request', description: 'Terminal slice facts.' }],
+        returns: 'Terminal slice.',
+      },
+      {
+        signature: 'observe(agent: Agent, observation: Omit<PlanningObservation, \'id\' | \'observedAt\'>): PlanningObservation',
+        description: 'Append one metadata-only lifecycle fact.',
+        parameters: [{ name: 'agent', description: 'Exact live owner.' }, { name: 'observation', description: 'Metadata-only fact.' }],
+        returns: 'Durable observation snapshot.',
+      },
+    ],
+  },
+  {
+    key: 'planningCalibration',
+    summary: 'Storage-backed derived calibration provider.',
+    description: 'Storage-backed derived calibration provider.',
+    methods: [
+      {
+        signature: 'samples(): CalibrationSample[]',
+        description: 'Read current immutable samples from the derived cache.',
+        parameters: [],
+        returns: 'Detached sample snapshots.',
+      },
+      {
+        signature: 'estimate(request: CalibrationEstimateRequest): CalibratedEstimate',
+        description: 'Estimate one work cohort.',
+        parameters: [{ name: 'request', description: 'Work cohort and optional prior.' }],
+        returns: 'Hierarchically calibrated estimate.',
+      },
+      {
+        signature: 'schedule(candidates: readonly ScheduleCandidate[], loadTarget: number = 0.65): ScheduleRecommendation',
+        description: 'Recommend work without changing candidate priority.',
+        parameters: [{ name: 'candidates', description: 'Priority-ordered work.' }, { name: 'loadTarget', description: 'Fraction from 0.60 to 0.70.' }],
+        returns: 'Capacity-safe recommendation.',
+      },
+      {
+        signature: 'async record(sample: CalibrationSample): Promise<void>',
+        description: 'Upsert one derived calibration row.',
+        parameters: [{ name: 'sample', description: 'Full derived calibration row.' }],
+        returns: 'Resolution after durable storage.',
+      },
+      {
+        signature: 'async ingestSession(session: Session): Promise<number>',
+        description: 'Idempotently derive terminal attempts from one Session log.',
+        parameters: [{ name: 'session', description: 'Authoritative planning log.' }],
+        returns: 'Number of terminal attempts upserted.',
+      },
+    ],
+  },
+  {
+    key: 'planningReview',
+    summary: 'Portable authority boundary; deployment adapters own source mutation.',
+    description: 'Portable authority boundary; deployment adapters own source mutation.',
+    methods: [
+      {
+        signature: 'registerSource(adapter: PlanningSourceAdapter): () => void',
+        description: 'Register one deployment-owned source boundary.',
+        parameters: [{ name: 'adapter', description: 'Named deployment source boundary.' }],
+        returns: 'Registration disposer.',
+      },
+      {
+        signature: 'listSources(): string[]',
+        description: 'List available source boundaries.',
+        parameters: [],
+        returns: 'Registered source names in stable order.',
+      },
+      {
+        signature: 'async review(agent: Agent, request: { readonly source: string readonly summary: string readonly proposal: Record<string, unknown> readonly signal?: AbortSignal }): Promise<PlanningReviewResult>',
+        description: 'Ask a human to decide one complete canonical proposal.',
+        parameters: [{ name: 'agent', description: 'Exact live human-facing owner.' }, { name: 'request', description: 'Complete proposal and source identity.' }],
+        returns: 'Durable exact-hash review result.',
+      },
+      {
+        signature: 'async applyApproved(agent: Agent, request: { readonly source: string readonly proposal: Record<string, unknown> readonly approval: PlanningApproval }): Promise<unknown>',
+        description: 'Apply one exact durably approved proposal.',
+        parameters: [{ name: 'agent', description: 'Exact live approval owner.' }, { name: 'request', description: 'Proposal plus approval artifact.' }],
+        returns: 'Source adapter result.',
+      },
+    ],
+  },
+  {
     key: 'sandbox',
     summary: 'Abstract process-sandbox service.',
     description: 'Abstract process-sandbox service. confine must return enforcing argv or fail closed at wrap or runner-execution time; silent unconfined passthrough is forbidden. Functional probes arbitrate multi-runner chains and may be skipped for a sole candidate, whose own refusal remains the fail-closed end.',
@@ -3018,6 +3147,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type Branded<B extends string> = string & {\n    readonly [BRAND]: B;\n};',
   },
   {
+    name: 'CalibratedEstimate',
+    declaration: 'export interface CalibratedEstimate extends PlanningEstimate {\n    readonly confidence: PlanningConfidence;\n    readonly sampleCount: number;\n    readonly cohort: \'exact\' | \'class-risk\' | \'class\' | \'global\' | \'prior\';\n    readonly meanAbsoluteErrorMinutes?: number;\n    readonly firstAttemptSuccessRate?: number;\n}',
+  },
+  {
+    name: 'CalibrationEstimateRequest',
+    declaration: 'export interface CalibrationEstimateRequest {\n    readonly workClass: string;\n    readonly workTags: readonly string[];\n    readonly riskLevel: PlanningRiskLevel;\n    readonly fallbackP50Minutes?: number;\n    readonly fallbackP90Minutes?: number;\n}',
+  },
+  {
+    name: 'CalibrationSample',
+    declaration: 'export interface CalibrationSample {\n    readonly id: string;\n    readonly featureId: string;\n    readonly workClass: string;\n    readonly workTags: readonly string[];\n    readonly riskLevel: PlanningRiskLevel;\n    readonly estimatedP50Minutes: number;\n    readonly estimatedP90Minutes: number;\n    readonly actualMinutes: number;\n    readonly attemptNo: number;\n    readonly firstAttemptSuccess: boolean;\n    readonly outcome: PlanningOutcome;\n    readonly recordedAt: number;\n}',
+  },
+  {
     name: 'CancelOptions',
     declaration: 'export interface CancelOptions {\n    keepInbox?: boolean | undefined;\n}',
   },
@@ -3194,6 +3335,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface CreateGoalResult {\n    readonly ref: GoalRef;\n}',
   },
   {
+    name: 'CreatePortfolioRequest',
+    declaration: 'export interface CreatePortfolioRequest {\n    readonly proposalId: PlanningProposalId;\n    readonly proposalRevision: number;\n    readonly proposalSha256: string;\n    readonly entries: readonly PortfolioEntry[];\n    readonly loadTarget: number;\n    readonly reserveMinutes: number;\n}',
+  },
+  {
     name: 'CreateSessionOptions',
     declaration: 'export interface CreateSessionOptions {\n    readonly seed?: readonly SessionEvent[];\n    readonly meta?: {\n        readonly cwd?: string;\n        readonly parentSession?: SessionId;\n        readonly createdAt?: number;\n        readonly seedLength?: number;\n        readonly origin?: \'subagent\';\n        readonly delegationDepth?: number;\n        readonly agentPreset?: string;\n    };\n}',
   },
@@ -3224,6 +3369,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'CredentialRef',
     declaration: 'export type CredentialRef = Branded<\'CredentialRef\'>;',
+  },
+  {
+    name: 'DecideProposalRequest',
+    declaration: 'export interface DecideProposalRequest {\n    readonly id: PlanningProposalId;\n    readonly revision: number;\n    readonly sha256: string;\n    readonly decision: \'approved\' | \'rejected\' | \'applied\';\n    readonly reviewId: string;\n}',
   },
   {
     name: 'DiffCallView',
@@ -3338,6 +3487,22 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface EpochHeader {\n    config: LlmCallConfig;\n    adapterDefaults?: LlmCallConfigAdapterDefaults;\n    system?: string;\n    tools?: ToolSchema[];\n}',
   },
   {
+    name: 'ExecutionSliceId',
+    declaration: 'export type ExecutionSliceId = Branded<\'ExecutionSliceId\'>;',
+  },
+  {
+    name: 'ExecutionSliceSnapshot',
+    declaration: 'export interface ExecutionSliceSnapshot {\n    readonly id: ExecutionSliceId;\n    readonly revision: number;\n    readonly attemptId: FeatureAttemptId;\n    readonly objective: string;\n    readonly allowlist: readonly string[];\n    readonly expectedResult: string;\n    readonly budgetMinutes: number;\n    readonly budgetExceptionReason?: string;\n    readonly state: \'running\' | \'terminal\';\n    readonly startedAt: number;\n    readonly endedAt?: number;\n    readonly durationMs?: number;\n    readonly outcome?: PlanningOutcome;\n}',
+  },
+  {
+    name: 'FeatureAttemptId',
+    declaration: 'export type FeatureAttemptId = Branded<\'FeatureAttemptId\'>;',
+  },
+  {
+    name: 'FeatureAttemptSnapshot',
+    declaration: 'export interface FeatureAttemptSnapshot {\n    readonly id: FeatureAttemptId;\n    readonly revision: number;\n    readonly portfolioId: PortfolioId;\n    readonly featureId: string;\n    readonly contractSha256: string;\n    readonly workClass: string;\n    readonly workTags: readonly string[];\n    readonly riskLevel: PlanningRiskLevel;\n    readonly attemptNo: number;\n    readonly estimate: PlanningEstimate;\n    readonly state: \'running\' | \'terminal\';\n    readonly startedAt: number;\n    readonly endedAt?: number;\n    readonly durationMs?: number;\n    readonly outcome?: PlanningOutcome;\n    readonly verifierResult?: \'PASS\' | \'FAIL\' | \'unknown\';\n    readonly manualIntervention?: \'none\' | \'present\' | \'unknown\';\n    readonly scopeStatus?: \'within\' | \'violated\' | \'unknown\';\n}',
+  },
+  {
     name: 'FileDiff',
     declaration: 'export interface FileDiff {\n    path: string;\n    oldText: string | null;\n    newText: string;\n}',
   },
@@ -3350,12 +3515,20 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface FileReferenceCandidate {\n    path: string;\n    kind: \'file\' | \'directory\';\n}',
   },
   {
+    name: 'FinishAttemptRequest',
+    declaration: 'export interface FinishAttemptRequest {\n    readonly id: FeatureAttemptId;\n    readonly revision: number;\n    readonly outcome: PlanningOutcome;\n    readonly verifierResult: \'PASS\' | \'FAIL\' | \'unknown\';\n    readonly manualIntervention: \'none\' | \'present\' | \'unknown\';\n    readonly scopeStatus: \'within\' | \'violated\' | \'unknown\';\n}',
+  },
+  {
     name: 'FinishReason',
     declaration: 'export type FinishReason = FinishReasonMap[keyof FinishReasonMap];',
   },
   {
     name: 'FinishReasonMap',
     declaration: 'export interface FinishReasonMap {\n    \'stop\': {\n        kind: \'stop\';\n    };\n    \'tool-calls\': {\n        kind: \'tool-calls\';\n    };\n    \'max-tokens\': {\n        kind: \'max-tokens\';\n    };\n    \'aborted\': {\n        kind: \'aborted\';\n        failure: LlmFailure;\n    };\n    \'error\': {\n        kind: \'error\';\n        failure: LlmFailure;\n    };\n}',
+  },
+  {
+    name: 'FinishSliceRequest',
+    declaration: 'export interface FinishSliceRequest {\n    readonly id: ExecutionSliceId;\n    readonly revision: number;\n    readonly outcome: PlanningOutcome;\n}',
   },
   {
     name: 'FsDirEntry',
@@ -3519,7 +3692,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'JobHooks',
-    declaration: 'export interface JobHooks {\n    cancel(reason?: string): void;\n    done: Promise<JobOutcome>;\n    readOutput?(): string;\n}',
+    declaration: 'export interface JobHooks {\n    cancel(reason?: string): void;\n    done: Promise<JobOutcome>;\n    readOutput?(): string;\n    subscribeProgress?: JobProgressSubscriber;\n}',
   },
   {
     name: 'JobId',
@@ -3538,6 +3711,22 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface JobOutcome {\n    status: \'completed\' | \'killed\' | \'failed\';\n    detail?: string;\n    output?: string;\n}',
   },
   {
+    name: 'JobProgress',
+    declaration: 'export interface JobProgress extends JobProgressUpdate {\n    updatedAt: number;\n}',
+  },
+  {
+    name: 'JobProgressListener',
+    declaration: 'export type JobProgressListener = (update: JobProgressUpdate) => void;',
+  },
+  {
+    name: 'JobProgressSubscriber',
+    declaration: 'export type JobProgressSubscriber = (listener: JobProgressListener) => () => void;',
+  },
+  {
+    name: 'JobProgressUpdate',
+    declaration: 'export interface JobProgressUpdate {\n    phase?: string;\n    completedUnits?: number;\n    totalUnits?: number;\n    message?: string;\n}',
+  },
+  {
     name: 'JobRead',
     declaration: 'export interface JobRead {\n    text: string;\n    snapshot: JobSnapshot;\n}',
   },
@@ -3547,7 +3736,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'JobSnapshot',
-    declaration: 'export interface JobSnapshot {\n    id: JobId;\n    kind: JobKind;\n    label: string;\n    outputLimitBytes?: number;\n    ownerSession?: SessionId;\n    status: JobStatus;\n    detail?: string;\n    startedAt: number;\n    finishedAt?: number;\n    reported: boolean;\n}',
+    declaration: 'export interface JobSnapshot {\n    id: JobId;\n    kind: JobKind;\n    label: string;\n    outputLimitBytes?: number;\n    ownerSession?: SessionId;\n    status: JobStatus;\n    detail?: string;\n    progress?: JobProgress;\n    startedAt: number;\n    finishedAt?: number;\n    durationMs?: number;\n    reported: boolean;\n}',
   },
   {
     name: 'JobStart',
@@ -3810,6 +3999,74 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface PermissionSelect {\n    options: PresetOption[];\n    currentValue: string;\n}',
   },
   {
+    name: 'PlanningApplyRequest',
+    declaration: 'export interface PlanningApplyRequest {\n    readonly proposal: Record<string, unknown>;\n    readonly approval: PlanningApproval;\n}',
+  },
+  {
+    name: 'PlanningApproval',
+    declaration: 'export interface PlanningApproval {\n    readonly decision: \'approved\';\n    readonly proposal_id: string;\n    readonly proposal_sha256: string;\n    readonly session_id: string;\n    readonly review_id: string;\n    readonly approved_at: string;\n}',
+  },
+  {
+    name: 'PlanningConfidence',
+    declaration: 'export type PlanningConfidence = \'low\' | \'medium\' | \'high\';',
+  },
+  {
+    name: 'PlanningEstimate',
+    declaration: 'export interface PlanningEstimate {\n    readonly p50Minutes: number;\n    readonly p90Minutes: number;\n    readonly confidence: PlanningConfidence;\n    readonly basis: string;\n}',
+  },
+  {
+    name: 'PlanningMetadataValue',
+    declaration: 'export type PlanningMetadataValue = string | number | boolean | null | readonly PlanningMetadataValue[] | {\n    readonly [key: string]: PlanningMetadataValue;\n};',
+  },
+  {
+    name: 'PlanningObservation',
+    declaration: 'export interface PlanningObservation {\n    readonly id: PlanningObservationId;\n    readonly attemptId?: FeatureAttemptId;\n    readonly sliceId?: ExecutionSliceId;\n    readonly kind: \'delegation\' | \'job\' | \'tool\' | \'human_wait\' | \'network_wait\' | \'queue_wait\' | \'unknown_wait\';\n    readonly externalId: string;\n    readonly phase: \'start\' | \'progress\' | \'terminal\';\n    readonly observedAt: number;\n    readonly startedAt?: number;\n    readonly endedAt?: number;\n    readonly durationMs?: number;\n    readonly outcome?: PlanningOutcome;\n    readonly parentObservationIds: readonly PlanningObservationId[];\n    readonly metadata: {\n        readonly [key: string]: PlanningMetadataValue;\n    };\n}',
+  },
+  {
+    name: 'PlanningObservationId',
+    declaration: 'export type PlanningObservationId = Branded<\'PlanningObservationId\'>;',
+  },
+  {
+    name: 'PlanningOutcome',
+    declaration: 'export type PlanningOutcome = \'passing\' | \'failed\' | \'blocked\' | \'timed_out\' | \'cancelled\' | \'scope_changed\' | \'interrupted\' | \'unknown\';',
+  },
+  {
+    name: 'PlanningProposalId',
+    declaration: 'export type PlanningProposalId = Branded<\'PlanningProposalId\'>;',
+  },
+  {
+    name: 'PlanningProposalSnapshot',
+    declaration: 'export interface PlanningProposalSnapshot {\n    readonly id: PlanningProposalId;\n    readonly revision: number;\n    readonly sha256: string;\n    readonly summary: string;\n    readonly status: \'staged\' | \'approved\' | \'rejected\' | \'applied\';\n    readonly reviewId?: string;\n    readonly createdAt: number;\n    readonly updatedAt: number;\n}',
+  },
+  {
+    name: 'PlanningReviewResult',
+    declaration: 'export interface PlanningReviewResult {\n    readonly decision: \'approved\' | \'rejected\';\n    readonly proposal: PlanningProposalSnapshot;\n    readonly approval?: PlanningApproval;\n}',
+  },
+  {
+    name: 'PlanningRiskLevel',
+    declaration: 'export type PlanningRiskLevel = \'R0\' | \'R1\' | \'R2\' | \'R3\';',
+  },
+  {
+    name: 'PlanningSourceAdapter',
+    declaration: 'export interface PlanningSourceAdapter {\n    readonly name: string;\n    apply(request: PlanningApplyRequest): Promise<unknown>;\n}',
+  },
+  {
+    name: 'PlanningView',
+    declaration: 'export interface PlanningView {\n    readonly proposal?: PlanningProposalSnapshot;\n    readonly portfolio?: PortfolioSnapshot;\n    readonly attempts: readonly FeatureAttemptSnapshot[];\n    readonly slices: readonly ExecutionSliceSnapshot[];\n    readonly observations: readonly PlanningObservation[];\n}',
+  },
+  {
+    name: 'PortfolioEntry',
+    declaration: 'export interface PortfolioEntry {\n    readonly featureId: string;\n    readonly contractSha256: string;\n    readonly position: number;\n    readonly workClass: string;\n    readonly workTags: readonly string[];\n    readonly riskLevel: PlanningRiskLevel;\n    readonly estimate: PlanningEstimate;\n}',
+  },
+  {
+    name: 'PortfolioId',
+    declaration: 'export type PortfolioId = Branded<\'PortfolioId\'>;',
+  },
+  {
+    name: 'PortfolioSnapshot',
+    declaration: 'export interface PortfolioSnapshot {\n    readonly id: PortfolioId;\n    readonly revision: number;\n    readonly proposalId: PlanningProposalId;\n    readonly proposalSha256: string;\n    readonly horizonMinutes: 120;\n    readonly loadTarget: number;\n    readonly reserveMinutes: number;\n    readonly phase: \'approved\' | \'running\' | \'completed\';\n    readonly entries: readonly PortfolioEntry[];\n    readonly createdAt: number;\n    readonly updatedAt: number;\n}',
+  },
+  {
     name: 'PostToolDecision',
     declaration: 'export type PostToolDecision = {\n    kind: \'accept\';\n    content?: ContentBlock[];\n    value?: never;\n    additionalContexts?: UserMessage[];\n} | {\n    kind: \'accept\';\n    value: JsonValue;\n    content?: never;\n    additionalContexts?: UserMessage[];\n} | {\n    kind: \'block\';\n    feedback: ContentBlock[];\n    additionalContexts?: UserMessage[];\n};',
   },
@@ -4026,12 +4283,28 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SaveTextSpill {\n    owner: SpillOwner;\n    source: SpillSource;\n    suggestedName: string;\n    content: string;\n}',
   },
   {
+    name: 'ScheduleCandidate',
+    declaration: 'export interface ScheduleCandidate extends CalibrationEstimateRequest {\n    readonly featureId: string;\n    readonly contractSha256: string;\n}',
+  },
+  {
     name: 'ScheduledToolDispatch',
     declaration: 'export type ScheduledToolDispatch = {\n    kind: \'post-result\';\n    result: ToolExecutionResult;\n} | {\n    kind: \'final-result\';\n    result: ToolExecutionResult;\n};',
   },
   {
     name: 'ScheduledToolPreparation',
     declaration: 'export type ScheduledToolPreparation = {\n    kind: \'dispatch\';\n    exec: ToolRunContext;\n} | {\n    kind: \'post-result\';\n    exec: ToolRunContext;\n    result: ToolExecutionResult;\n} | {\n    kind: \'final-result\';\n    exec: ToolRunContext;\n    result: ToolExecutionResult;\n};',
+  },
+  {
+    name: 'ScheduleEntry',
+    declaration: 'export interface ScheduleEntry extends ScheduleCandidate {\n    readonly position: number;\n    readonly estimate: CalibratedEstimate;\n}',
+  },
+  {
+    name: 'ScheduleExclusion',
+    declaration: 'export interface ScheduleExclusion {\n    readonly featureId: string;\n    readonly reason: \'capacity\';\n    readonly p90Minutes: number;\n}',
+  },
+  {
+    name: 'ScheduleRecommendation',
+    declaration: 'export interface ScheduleRecommendation {\n    readonly horizonMinutes: 120;\n    readonly loadTarget: number;\n    readonly capacityMinutes: number;\n    readonly reserveMinutes: number;\n    readonly entries: readonly ScheduleEntry[];\n    readonly exclusions: readonly ScheduleExclusion[];\n}',
   },
   {
     name: 'Scoped',
@@ -4444,6 +4717,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SpillSource',
     declaration: 'export interface SpillSource {\n    toolName: string;\n    callId: CallId;\n    label: string;\n}',
+  },
+  {
+    name: 'StageProposalRequest',
+    declaration: 'export interface StageProposalRequest {\n    readonly id: string;\n    readonly sha256: string;\n    readonly summary: string;\n}',
+  },
+  {
+    name: 'StartAttemptRequest',
+    declaration: 'export interface StartAttemptRequest {\n    readonly portfolioId: PortfolioId;\n    readonly featureId: string;\n    readonly contractSha256: string;\n    readonly estimate: PlanningEstimate;\n}',
+  },
+  {
+    name: 'StartSliceRequest',
+    declaration: 'export interface StartSliceRequest {\n    readonly attemptId: FeatureAttemptId;\n    readonly objective: string;\n    readonly allowlist: readonly string[];\n    readonly expectedResult: string;\n    readonly budgetMinutes: number;\n    readonly budgetExceptionReason?: string;\n}',
   },
   {
     name: 'StorageBackend',

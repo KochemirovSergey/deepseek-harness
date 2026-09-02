@@ -116,6 +116,15 @@ flowchart LR
   pkg_agent_spine_demo["agent-spine-demo"]
   pkg_goal["goal"]
   svc_goals["ctx.goals<br/>Same-session goal domain"]
+  pkg_planning["planning"]
+  svc_planning["ctx.planning<br/>Adaptive planning Session domain"]
+  pkg_planning_calibration["planning-calibration"]
+  pkg_planning_observer["planning-observer"]
+  pkg_planning_review["planning-review"]
+  pkg_tool_planning["tool-planning"]
+  svc_planningCalibration["ctx.planningCalibration<br/>Derived estimate and scheduling calibration"]
+  svc_planningReview["ctx.planningReview<br/>Exact-hash human review and source seam"]
+  pkg_planning_source_governance["planning-source-governance"]
   pkg_e2b["e2b"]
   svc_e2b["ctx.e2b<br/>E2B sandbox lifecycle owner"]
   pkg_fs_e2b["fs-e2b"]
@@ -251,6 +260,10 @@ flowchart LR
   pkg_modules --> svc_clientModules
   pkg_permission_presets --> svc_permissionPresets
   pkg_plan_mode --> svc_planMode
+  pkg_planning --> svc_planning
+  pkg_planning_calibration --> svc_planningCalibration
+  pkg_planning_review --> svc_planningReview
+  pkg_planning_source_governance --> svc_planningReview
   pkg_pwsh_local --> svc_shell
   pkg_sandbox --> svc_sandbox
   pkg_sandbox_local --> svc_sandbox
@@ -344,6 +357,10 @@ flowchart LR
   svc_llm --> pkg_agent_loop
   svc_llm --> pkg_compaction_basic
   svc_lsp --> pkg_tool_lsp
+  svc_planning --> pkg_planning_calibration
+  svc_planning --> pkg_planning_observer
+  svc_planning --> pkg_planning_review
+  svc_planning --> pkg_tool_planning
   svc_sandbox --> pkg_bash_sandbox
   svc_sandbox --> pkg_terminal_bash
   svc_sandboxPolicy --> pkg_bash_sandbox
@@ -461,6 +478,9 @@ flowchart LR
 | `ctx.agentDefaultModel` | `core` | [`agent-default-model`](../packages/core/agent-default-model) | - | [`headless`](../packages/bundle/headless), [`host-apiproxy`](../packages/host/apiproxy) | - | 通过 settings 分层默认 `ModelSelection`，让直接入口与 Host 支撑的 Agent 入口共享同一个状态所有者。 |
 | `ctx.agentLoop` | `bundle` | [`agent-loop`](../packages/core/agent-loop) | - | [`agent-spine-demo`](../packages/examples/agent-spine-demo) | - | 唯一的具体循环插件；扩展包依赖 dsh-agent 的事件和服务，而不依赖此包。 |
 | `ctx.goals` | `core` | [`goal`](../packages/goal/goal) | - | - | - | 从会话日志折叠带修订版本的目标状态，并将实时延续激活保留在进程本地。 |
+| `ctx.planning` | `core` | [`planning`](../packages/planning/planning) | - | [`planning-calibration`](../packages/planning/planning-calibration), [`planning-observer`](../packages/planning/planning-observer), [`planning-review`](../packages/planning/planning-review), [`tool-planning`](../packages/planning/tool-planning) | - | 为精确存活 Agent 提供严格 proposal、portfolio、attempt、slice 与 metadata-observation 回放。 |
+| `ctx.planningCalibration` | `core` | [`planning-calibration`](../packages/planning/planning-calibration) | - | - | - | 从终态 planning 事件重建本地样本，并在 p90 容量内推荐保持优先级的工作。 |
+| `ctx.planningReview` | `seam` | [`planning-review`](../packages/planning/planning-review) | [`planning-source-governance`](../packages/planning/planning-source-governance) | - | - | 将完整 canonical proposal 绑定到 plan-review 回答、Session event 与来源 adapter 事务。 |
 | `ctx.e2b` | `core` | [`e2b`](../packages/e2b/e2b) | - | [`fs-e2b`](../packages/e2b/fs-e2b), [`subprocess-e2b`](../packages/e2b/subprocess-e2b) | - | 拥有一个共享的 E2B SDK 句柄、远程工作目录和最终沙箱处置，使两个基础 E2B 提供方处于同一个 Linux 运行时中。 |
 | `ctx.subprocess` | `seam` | [`subprocess`](../packages/subprocess/subprocess) | [`subprocess-local`](../packages/subprocess/subprocess-local), [`subprocess-e2b`](../packages/e2b/subprocess-e2b) | [`bash-local`](../packages/shell/bash-local), [`bash-sandbox`](../packages/shell/bash-sandbox), [`terminal-bash`](../packages/terminal/terminal-bash), [`lsp-stdio`](../packages/lsp/lsp-stdio), [`subagent-acp`](../packages/subagent/subagent-acp), [`subagent-codex`](../packages/subagent/subagent-codex), [`subagent-claude-code`](../packages/subagent/subagent-claude-code) | - | Bash 执行器、PTY shell 后端、LSP Host，以及进程外 ACP、Codex 和 Claude Code subagent 后端都通过 ctx.subprocess 执行 spawn；该服务负责进程坐标、进程树／会话生命周期、stdio 处置、终端机制和 kill 升级。 |
 | `ctx.shell` | `seam` | [`shell`](../packages/shell/shell) | [`bash-local`](../packages/shell/bash-local), [`bash-sandbox`](../packages/shell/bash-sandbox), [`pwsh-local`](../packages/shell/pwsh-local) | [`tool-bash`](../packages/shell/tool-bash), [`tool-pwsh`](../packages/shell/tool-pwsh), [`hooks-claude-code`](../packages/hooks/hooks-claude-code), [`hooks-codex`](../packages/hooks/hooks-codex) | - | 面向模型的 shell 工具和钩子桥接消费此 seam；沙箱、远程或 PowerShell 执行器可以替换 bash-local，而无需改动这些消费方。 |

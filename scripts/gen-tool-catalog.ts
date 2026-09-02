@@ -17,6 +17,9 @@ import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import SqliteSessionQueryEngine from '@deepseek-ai/dsh-session-query-sqlite'
 import GoalService from '@deepseek-ai/dsh-goal'
+import PlanningService from '@deepseek-ai/dsh-planning'
+import PlanningReviewService from '@deepseek-ai/dsh-planning-review'
+import * as ToolPlanning from '@deepseek-ai/dsh-tool-planning'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { type Config as ToolsConfig } from '@deepseek-ai/dsh-tools'
 import LocalBashExecutor from '@deepseek-ai/dsh-bash-local'
@@ -226,6 +229,21 @@ const TOOL_PACKAGES: ToolPackage[] = [
       'exit_plan_mode stays in the model-facing schema while planning is inactive so transitions add no tool-catalog churn on top of the plan-policy change. Its execute path rejects calls outside plan mode; in plan mode it presents the plan over the user-questions seam (approve / keep planning with feedback), and approval logs plan mode inactive at the step boundary.',
   },
   {
+    pkg: '@deepseek-ai/dsh-planning-review',
+    dir: 'planning-review',
+    source: 'packages/planning/planning-review/src/index.ts',
+    requires: ['ctx.tools', 'ctx.agents', 'ctx.planning', 'ctx.userQuestions', 'a registered source adapter and calling Agent at execution time'],
+    writes: ['tool/call', 'planning/change proposal decisions', 'source adapter transaction after exact approval', 'tool/result'],
+    async mount(ctx) {
+      await ctx.plugin(AgentRegistry)
+      await ctx.plugin(PlanningService)
+      await ctx.plugin(UserQuestionService)
+      await ctx.plugin(PlanningReviewService)
+    },
+    note:
+      'planning_review_proposal requires a full JSON proposal and an explicit plan-review UI answer; planning_apply_proposal rechecks its exact hash, Session, and durable review id before invoking a named deployment adapter.',
+  },
+  {
     pkg: '@deepseek-ai/dsh-tool-bash',
     dir: 'tool-bash',
     source: 'packages/shell/tool-bash/src/index.ts',
@@ -371,6 +389,20 @@ const TOOL_PACKAGES: ToolPackage[] = [
     },
     note:
       'create, edit, pause, and resume require direct-human root authority; complete and blocked also accept the exact current goal round. The default blocked lower bound is three admitted rounds.',
+  },
+  {
+    pkg: '@deepseek-ai/dsh-tool-planning',
+    dir: 'tool-planning',
+    source: 'packages/planning/tool-planning/src/index.ts',
+    requires: ['ctx.tools', 'ctx.agents', 'ctx.planning', 'a calling Agent'],
+    writes: ['tool/call', 'planning/change portfolio, attempt, and slice transitions', 'tool/result'],
+    async mount(ctx) {
+      await ctx.plugin(AgentRegistry)
+      await ctx.plugin(PlanningService)
+      await ctx.plugin(ToolPlanning)
+    },
+    note:
+      'The six lifecycle tools can materialize only the exact human-approved proposal revision; they recommend and record work but cannot approve proposals or reorder source authority.',
   },
   {
     pkg: '@deepseek-ai/dsh-schedule',

@@ -80,6 +80,11 @@ interface JobHooks {
    * job has one consuming cursor.
    */
   readOutput?(): string
+  /**
+   * Optional metadata-only progress source. The registry subscribes once after registration,
+   * publishes the latest snapshot through {@link JobSnapshot.progress}, and disposes at settlement.
+   */
+  subscribeProgress?: JobProgressSubscriber
 }
 ```
 
@@ -97,7 +102,7 @@ interface JobOutcome {
 
 ## 消费方视图
 
-快照是每次新建的只读投影。`ownerSession` 携带用于授权的共享 `SessionId`；完成监听器则会另行收到用于生命周期清理的确切拥有者对象。另一个接口已经交付终止状态或承诺交付时，`reported` 会抑制完成通知；排空 owner 或服务的 teardown 取消同样计入。
+快照是每次新建的只读投影。可选的仅元数据 `progress` 由 registry 加时间戳，终态快照暴露单调时钟 `durationMs`。`ownerSession` 携带用于授权的共享 `SessionId`；完成监听器则会另行收到用于生命周期清理的确切拥有者对象。另一个接口已经交付终止状态或承诺交付时，`reported` 会抑制完成通知；排空 owner 或服务的 teardown 取消同样计入。
 
 ```ts type-equiv
 /**
@@ -123,10 +128,14 @@ interface JobSnapshot {
   status: JobStatus
   /** Kind-specific status detail, present once the producer supplied one (usually terminal). */
   detail?: string
+  /** Latest metadata-only producer progress, when the producer exposes one. */
+  progress?: JobProgress
   /** Epoch ms when the job was registered. */
   startedAt: number
   /** Epoch ms when the job settled; absent while `running`/`stopping`. */
   finishedAt?: number
+  /** Monotonic elapsed milliseconds, present exactly after settlement. */
+  durationMs?: number
   /**
    * True when a kill, read, wait, or teardown cancel has reported or committed
    * to report the terminal state. Completion reporters suppress redundant

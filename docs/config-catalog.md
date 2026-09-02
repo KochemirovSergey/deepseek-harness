@@ -904,7 +904,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/jobs/jobs-local/src/index.ts:31`](../packages/jobs/jobs-local/src/index.ts)
+Source: [`packages/jobs/jobs-local/src/index.ts:32`](../packages/jobs/jobs-local/src/index.ts)
 
 <a id="deepseek-aidsh-llm-deepseek"></a>
 
@@ -1533,6 +1533,26 @@ export interface PlanModeConfig {
 ```
 
 Source: [`packages/plan/plan-mode/src/index.ts:70`](../packages/plan/plan-mode/src/index.ts)
+
+<a id="deepseek-aidsh-planning-source-governance"></a>
+
+## `@deepseek-ai/dsh-planning-source-governance`
+
+Requires: `planningReview`
+
+```ts config-catalog
+/** Deployment configuration for the fixed local governance subprocess adapter. */
+export interface Config {
+  /** Absolute data-platform-governance repository root. */
+  readonly root: string
+  /** Python executable used without a shell. */
+  readonly pythonBinary?: string
+  /** Maximum atomic adapter subprocess duration in milliseconds. */
+  readonly timeoutMs?: number
+}
+```
+
+Source: [`packages/planning/planning-source-governance/src/index.ts:17`](../packages/planning/planning-source-governance/src/index.ts)
 
 <a id="deepseek-aidsh-pwsh-local"></a>
 
@@ -3275,6 +3295,10 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-host-plugin-inventory` — requires `loader` ([`packages/host/plugin-inventory/src/index.ts`](../packages/host/plugin-inventory/src/index.ts))
 - `@deepseek-ai/dsh-llm` ([`packages/llm/llm/src/index.ts`](../packages/llm/llm/src/index.ts))
 - `@deepseek-ai/dsh-lsp` ([`packages/lsp/lsp/src/index.ts`](../packages/lsp/lsp/src/index.ts))
+- `@deepseek-ai/dsh-planning` — requires `agents` ([`packages/planning/planning/src/index.ts`](../packages/planning/planning/src/index.ts))
+- `@deepseek-ai/dsh-planning-calibration` — requires `storageDomain` · `sessions` ([`packages/planning/planning-calibration/src/index.ts`](../packages/planning/planning-calibration/src/index.ts))
+- `@deepseek-ai/dsh-planning-observer` — requires `planning` ([`packages/planning/planning-observer/src/index.ts`](../packages/planning/planning-observer/src/index.ts))
+- `@deepseek-ai/dsh-planning-review` — requires `planning` · `userQuestions` · `tools` ([`packages/planning/planning-review/src/index.ts`](../packages/planning/planning-review/src/index.ts))
 - `@deepseek-ai/dsh-schedule` — requires `agents` · `sessions` · `tools` · `sessionPersistence` ([`packages/schedule/schedule/src/index.ts`](../packages/schedule/schedule/src/index.ts))
 - `@deepseek-ai/dsh-session` ([`packages/core/session/src/index.ts`](../packages/core/session/src/index.ts))
 - `@deepseek-ai/dsh-session-checkpoint-policy` — requires `llm` · `sessionPersistence` · `sessions` · `tools` ([`packages/session/session-checkpoint-policy/src/index.ts`](../packages/session/session-checkpoint-policy/src/index.ts))
@@ -3289,6 +3313,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-tool-ask-user` — requires `tools` · `userQuestions` ([`packages/interaction/tool-ask-user/src/index.ts`](../packages/interaction/tool-ask-user/src/index.ts))
 - `@deepseek-ai/dsh-tool-call-timeout-policy` — requires `tools` ([`packages/guard/timeout-policy/src/index.ts`](../packages/guard/timeout-policy/src/index.ts))
 - `@deepseek-ai/dsh-tool-cordis` — requires `tools` · `systemPrompt` · `dynamicCordisRunner` · `cordisInspect` ([`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts))
+- `@deepseek-ai/dsh-tool-planning` — requires `planning` · `tools` ([`packages/planning/tool-planning/src/index.ts`](../packages/planning/tool-planning/src/index.ts))
 - `@deepseek-ai/dsh-tool-subagent-control` — requires `tools` · `subagents` ([`packages/subagent/tool-subagent-control/src/index.ts`](../packages/subagent/tool-subagent-control/src/index.ts))
 - `@deepseek-ai/dsh-user-questions` ([`packages/interaction/user-questions/src/index.ts`](../packages/interaction/user-questions/src/index.ts))
 - `@deepseek-ai/dsh-workspace` — requires `storageDomain` · `sessionPersistence` ([`packages/workspace/workspace/src/index.ts`](../packages/workspace/workspace/src/index.ts))
@@ -3319,6 +3344,7 @@ Abstract service classes — a deployment loads a concrete implementation packag
 Imported as libraries by other packages; a `cordis.yml` cannot load them.
 
 - `@deepseek-ai/dsh-acp-snapshot` ([`packages/test-support/acp-snapshot/src/index.ts`](../packages/test-support/acp-snapshot/src/index.ts))
+- `@deepseek-ai/dsh-adaptive-planning` ([`packages/bundle/adaptive-planning/src/index.ts`](../packages/bundle/adaptive-planning/src/index.ts))
 - `@deepseek-ai/dsh-agent-loop-testkit` ([`packages/test-support/agent-loop-testkit/src/index.ts`](../packages/test-support/agent-loop-testkit/src/index.ts))
 - `@deepseek-ai/dsh-anonymous-user-id` ([`packages/identity/anonymous-user-id/src/index.ts`](../packages/identity/anonymous-user-id/src/index.ts))
 - `@deepseek-ai/dsh-app-boot` ([`packages/boot/app-boot/src/index.ts`](../packages/boot/app-boot/src/index.ts))

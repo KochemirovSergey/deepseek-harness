@@ -9,6 +9,7 @@
  * @module @deepseek-ai/dsh-jobs-local
  */
 
+import { performance } from 'node:perf_hooks'
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -17,7 +18,7 @@ import type { ScopeLayer } from '@deepseek-ai/dsh-scope'
 import { deadline, timeoutOf } from '@deepseek-ai/dsh-timeout'
 import { JobRegistry, JobId } from '@deepseek-ai/dsh-jobs'
 import type {
-  JobDoneListener, JobKind, JobOutcome, JobRead, JobSnapshot, JobStart, JobStatus,
+  JobDoneListener, JobKind, JobOutcome, JobProgress, JobProgressUpdate, JobRead, JobSnapshot, JobStart, JobStatus,
   JobsChangedListener,
 } from '@deepseek-ai/dsh-jobs'
 
@@ -49,8 +50,12 @@ interface TrackedTask {
   status: JobStatus
   detail: string | undefined
   output: string | undefined
+  progress: JobProgress | undefined
+  disposeProgress: (() => void) | undefined
   startedAt: number
+  monotonicStartedAt: number
   finishedAt: number | undefined
+  durationMs: number | undefined
   reported: boolean
   /** Resolves once the terminal snapshot is recorded and listeners notified. */
   settled: Promise<void>
@@ -165,8 +170,12 @@ export class LocalJobRegistry extends JobRegistry {
       status: 'running',
       detail: undefined,
       output: undefined,
+      progress: undefined,
+      disposeProgress: undefined,
       startedAt: Date.now(),
+      monotonicStartedAt: performance.now(),
       finishedAt: undefined,
+      durationMs: undefined,
       reported: false,
       settled,
       markSettled,
@@ -174,6 +183,13 @@ export class LocalJobRegistry extends JobRegistry {
       waitResolvers: new Set(),
     }
     this.store.set(id, job)
+    if (hooks.subscribeProgress !== undefined) {
+      try {
+        job.disposeProgress = hooks.subscribeProgress((update) => { this.acceptProgress(job, update) })
+      } catch (error: unknown) {
+        this.selfCtx.logger.warn(`jobs: job ${job.id} progress subscription threw: ${String(error)}`)
+      }
+    }
 
     void hooks.done.then(
       (outcome) => { this.settle(job, outcome) },
@@ -359,6 +375,25 @@ export class LocalJobRegistry extends JobRegistry {
     }
   }
 
+  /** Accept one metadata-only producer progress update without letting a bad producer break work. */
+  private acceptProgress(job: TrackedTask, update: JobProgressUpdate): void {
+    if (isTerminal(job.status)) return
+    const validCompleted = update.completedUnits === undefined
+      || (Number.isFinite(update.completedUnits) && update.completedUnits >= 0)
+    const validTotal = update.totalUnits === undefined
+      || (Number.isFinite(update.totalUnits) && update.totalUnits > 0)
+    const validRatio = update.completedUnits === undefined || update.totalUnits === undefined
+      || update.completedUnits <= update.totalUnits
+    const validPhase = update.phase === undefined || (update.phase.trim().length > 0 && update.phase === update.phase.trim())
+    const validMessage = update.message === undefined || (update.message.trim().length > 0 && update.message === update.message.trim())
+    if (!validCompleted || !validTotal || !validRatio || !validPhase || !validMessage) {
+      this.selfCtx.logger.warn(`jobs: job ${job.id} ignored invalid progress metadata`)
+      return
+    }
+    job.progress = { ...update, updatedAt: Date.now() }
+    this.notifyChanged(job.owner)
+  }
+
   /** Project a fresh read-only snapshot from the mutable record. */
   private snapshot(job: TrackedTask): JobSnapshot {
     const ownerSession = job.owner?.id
@@ -370,8 +405,10 @@ export class LocalJobRegistry extends JobRegistry {
       ...ownerSession !== undefined ? { ownerSession } : {},
       status: job.status,
       ...job.detail !== undefined ? { detail: job.detail } : {},
+      ...job.progress !== undefined ? { progress: { ...job.progress } } : {},
       startedAt: job.startedAt,
       ...job.finishedAt !== undefined ? { finishedAt: job.finishedAt } : {},
+      ...job.durationMs !== undefined ? { durationMs: job.durationMs } : {},
       reported: job.reported,
     }
   }
@@ -419,6 +456,13 @@ export class LocalJobRegistry extends JobRegistry {
     job.detail = outcome.detail
     job.output = outcome.output
     job.finishedAt = Date.now()
+    job.durationMs = Math.max(0, performance.now() - job.monotonicStartedAt)
+    try {
+      job.disposeProgress?.()
+    } catch (error: unknown) {
+      this.selfCtx.logger.warn(`jobs: job ${job.id} progress disposer threw: ${String(error)}`)
+    }
+    job.disposeProgress = undefined
     if (job.waiters > 0) job.reported = true
     const snapshot = this.snapshot(job)
     const waitResolvers = [...job.waitResolvers]

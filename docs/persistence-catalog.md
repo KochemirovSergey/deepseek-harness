@@ -533,6 +533,30 @@ Source: [`packages/interaction/permission-presets/src/index.ts:50`](../packages/
 
 Source: [`packages/plan/plan-mode/src/index.ts:53`](../packages/plan/plan-mode/src/index.ts)
 
+### `planning/*`
+
+<a id="planningchange--log-only"></a>
+
+#### `planning/change` — log-only
+
+```ts persistence-catalog
+/** Records one complete versioned proposal, portfolio, attempt, or slice lifecycle snapshot. */
+'planning/change': PlanningEvent
+```
+
+Source: [`packages/planning/planning/src/types.ts:220`](../packages/planning/planning/src/types.ts)
+
+<a id="planningobservation--log-only"></a>
+
+#### `planning/observation` — log-only
+
+```ts persistence-catalog
+/** Records one metadata-only causal execution observation for calibration and trace analysis. */
+'planning/observation': PlanningObservationEvent
+```
+
+Source: [`packages/planning/planning/src/types.ts:222`](../packages/planning/planning/src/types.ts)
+
 ### `request/*`
 
 <a id="requestcontext--log-only"></a>

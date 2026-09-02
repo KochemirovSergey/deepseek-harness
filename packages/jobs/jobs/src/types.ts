@@ -68,6 +68,29 @@ export interface JobStart {
   run(): JobHooks
 }
 
+/** Producer progress update. Payloads are metadata only; output belongs in the job stream. */
+export interface JobProgressUpdate {
+  /** Optional phase name such as `download` or `verify`. */
+  phase?: string
+  /** Completed work units; non-negative and no greater than totalUnits when both are present. */
+  completedUnits?: number
+  /** Total work units; positive when present. */
+  totalUnits?: number
+  /** Short progress summary without prompts, command output, or tool payloads. */
+  message?: string
+}
+
+/** Registry-stamped progress snapshot. */
+export interface JobProgress extends JobProgressUpdate {
+  /** Epoch ms at which the registry accepted this update. */
+  updatedAt: number
+}
+
+/** Consumer callback for one metadata-only producer progress update. */
+export type JobProgressListener = (update: JobProgressUpdate) => void
+/** Producer hook that subscribes a progress listener and returns its disposer. */
+export type JobProgressSubscriber = (listener: JobProgressListener) => () => void
+
 /** Hooks through which the runtime controls and observes producer work. */
 export interface JobHooks {
   /**
@@ -88,6 +111,11 @@ export interface JobHooks {
    * job has one consuming cursor.
    */
   readOutput?(): string
+  /**
+   * Optional metadata-only progress source. The registry subscribes once after registration,
+   * publishes the latest snapshot through {@link JobSnapshot.progress}, and disposes at settlement.
+   */
+  subscribeProgress?: JobProgressSubscriber
 }
 
 /**
@@ -113,10 +141,14 @@ export interface JobSnapshot {
   status: JobStatus
   /** Kind-specific status detail, present once the producer supplied one (usually terminal). */
   detail?: string
+  /** Latest metadata-only producer progress, when the producer exposes one. */
+  progress?: JobProgress
   /** Epoch ms when the job was registered. */
   startedAt: number
   /** Epoch ms when the job settled; absent while `running`/`stopping`. */
   finishedAt?: number
+  /** Monotonic elapsed milliseconds, present exactly after settlement. */
+  durationMs?: number
   /**
    * True when a kill, read, wait, or teardown cancel has reported or committed
    * to report the terminal state. Completion reporters suppress redundant

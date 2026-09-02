@@ -14,6 +14,7 @@ const BASE: JobSnapshot = {
   status: 'completed',
   startedAt: 10,
   finishedAt: 20,
+  durationMs: 10,
   reported: false,
 }
 
@@ -75,6 +76,8 @@ describe('job-registry invariants', () => {
     [TERMINAL_WITHOUT_FINISH, undefined, /finishedAt must be present exactly for a terminal status/],
     [{ ...BASE, finishedAt: 9 }, undefined, /no earlier than startedAt/],
     [{ ...BASE, finishedAt: 20.5 }, undefined, /no earlier than startedAt/],
+    [{ ...BASE, durationMs: undefined }, undefined, /durationMs must be present exactly/],
+    [{ ...RUNNING, durationMs: 1 }, undefined, /durationMs must be present exactly/],
     [{ ...BASE, ownerSession: SessionId('recorded') }, { id: SessionId('actual') } as Agent, /does not match its completion owner/],
   ] as const)('rejects an incoherent registry snapshot', async (snapshot, owner, message) => {
     const notify = await setup()

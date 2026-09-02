@@ -115,7 +115,32 @@ describe('LocalJobRegistry.start', () => {
     expectTypeOf<JobSnapshot['ownerSession']>().toEqualTypeOf<SessionId | undefined>()
   })
 
-  it('refuses to register while no job controller serves the owner', async () => {
+  it('publishes validated producer progress and disposes its subscription at settlement', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(1_700_000_000_000)
+    const ctx = await harness()
+    let publish: ((update: import('@deepseek-ai/dsh-jobs').JobProgressUpdate) => void) | undefined
+    const disposed = vi.fn()
+    const task = producer({
+      subscribeProgress(listener) {
+        publish = listener
+        return disposed
+      },
+    })
+    const id = ctx.jobs.start(task.spec)
+    publish?.({ phase: 'verify', completedUnits: 2, totalUnits: 5, message: 'checking' })
+    expect(ctx.jobs.get(id).progress).toEqual({
+      phase: 'verify', completedUnits: 2, totalUnits: 5, message: 'checking', updatedAt: 1_700_000_000_000,
+    })
+    publish?.({ completedUnits: 6, totalUnits: 5 })
+    expect(ctx.jobs.get(id).progress?.completedUnits).toBe(2)
+    task.settle({ status: 'completed' })
+    await vi.runAllTimersAsync()
+    expect(disposed).toHaveBeenCalledOnce()
+    vi.useRealTimers()
+  })
+
+  it('refuses to register while no job controller serves the owner',  async () => {
     const ctx = new Context()
     await ctx.plugin(LocalJobRegistry)
     expect(() => ctx.jobs.start(producer().spec))
