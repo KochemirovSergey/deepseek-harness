@@ -312,6 +312,18 @@ export interface SessionEventMap {
    */
   'request/context': RequestContext
   /**
+   * Opaque tombstone for retired adaptive-planning history. It is log-only,
+   * has no model-history projection, and has no current producer.
+   * @deprecated Retained only so persisted sessions containing this event remain readable.
+   */
+  'planning/change': JsonValue
+  /**
+   * Opaque tombstone for retired adaptive-planning observations. It is log-only,
+   * has no model-history projection, and has no current producer.
+   * @deprecated Retained only so persisted sessions containing this event remain readable.
+   */
+  'planning/observation': JsonValue
+  /**
    * Marks the end of a constructor seed. Events before it have smaller seq
    * values and came from the seed (resume, fork, or replay); this lifecycle
    * produced none of them. This log-only event is the durable projection of

@@ -9,7 +9,6 @@ Bundle 身份由 manifest 声明决定，而不是由本目录决定。领域包
 | 包 | 职责 | ctx key |
 |---|---|---|
 | [`base/`](base/README.zh.md) | 每个 profile 最先应用的共享 dsh 核心 | —（仅 patch） |
-| [`adaptive-planning/`](adaptive-planning/README.zh.md) | Opt-in planning、校准、生命周期 observation 与工具 | 挂载 planning 配置行 |
 | [`web-app/`](web-app/README.zh.md) | 浏览器表层：web patch 层 + 运行时粘合插件 | 挂载多条配置行 |
 | [`headless/`](headless/README.zh.md) | 直接运行在 base 之上的一次性任务模式，不含 Host 或 Web 层 | 挂载 `headless-runner` |
 

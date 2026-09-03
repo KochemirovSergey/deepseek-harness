@@ -1385,6 +1385,43 @@ export function runCoordinatorContract(name: string, makeFixture: () => Promise<
       }
     })
 
+    it('loads retired planning events without projecting them into model history', async () => {
+      const fix = await makeFixture()
+      const { ctx, fiber } = await freshCtx(fix)
+      try {
+        const m = meta('retired-planning-events', WORK)
+        const log: SessionEvent[] = [
+          ...oneTurnLog(),
+          {
+            type: 'planning/change',
+            seq: 6,
+            time: 7,
+            data: { version: 1, operation: 'finish', attempt: { id: 'historical-attempt' } },
+          },
+          {
+            type: 'planning/observation',
+            seq: 7,
+            time: 8,
+            data: { version: 1, observation: { kind: 'historical-observation' } },
+          },
+        ]
+        await ctx.sessionPersistence.create(m)
+        await ctx.sessionPersistence.append(m.id, log)
+
+        const loaded = await ctx.sessionPersistence.load(m.id)
+        expect(loaded.events.slice(-2).map(event => event.type)).toEqual([
+          'planning/change',
+          'planning/observation',
+        ])
+        const resumed = Session.create(m.id, loaded.events, loaded.meta)
+        expect(resumed.deriveMessages().map(message => message.role)).toEqual(['user', 'assistant'])
+        expect(resumed.surface.nodes).toEqual([1, 3])
+      } finally {
+        await fiber.dispose()
+        await fix.cleanup()
+      }
+    })
+
     it('round-trips a header with parentSession (fork lineage)', async () => {
       const fix = await makeFixture()
       const { ctx, fiber } = await freshCtx(fix)

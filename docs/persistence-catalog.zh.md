@@ -92,7 +92,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
 }[T]
 ```
 
-来源：[`packages/core/session/src/types.ts:340`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:347`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:376`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:408`](../packages/core/session/src/types.ts)
+来源：[`packages/core/session/src/types.ts:352`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:359`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:388`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:420`](../packages/core/session/src/types.ts)
 
 ## 事件
 
@@ -542,22 +542,30 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
 #### `planning/change` — 仅日志
 
 ```ts persistence-catalog
-/** Records one complete versioned proposal, portfolio, attempt, or slice lifecycle snapshot. */
-'planning/change': PlanningEvent
+/**
+ * Opaque tombstone for retired adaptive-planning history. It is log-only,
+ * has no model-history projection, and has no current producer.
+ * @deprecated Retained only so persisted sessions containing this event remain readable.
+ */
+'planning/change': JsonValue
 ```
 
-来源：[`packages/planning/planning/src/types.ts:220`](../packages/planning/planning/src/types.ts)
+来源：[`packages/core/session/src/types.ts:319`](../packages/core/session/src/types.ts)
 
 <a id="planningobservation--log-only"></a>
 
 #### `planning/observation` — 仅日志
 
 ```ts persistence-catalog
-/** Records one metadata-only causal execution observation for calibration and trace analysis. */
-'planning/observation': PlanningObservationEvent
+/**
+ * Opaque tombstone for retired adaptive-planning observations. It is log-only,
+ * has no model-history projection, and has no current producer.
+ * @deprecated Retained only so persisted sessions containing this event remain readable.
+ */
+'planning/observation': JsonValue
 ```
 
-来源：[`packages/planning/planning/src/types.ts:222`](../packages/planning/planning/src/types.ts)
+来源：[`packages/core/session/src/types.ts:325`](../packages/core/session/src/types.ts)
 
 ### `request/*`
 
@@ -662,7 +670,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
 'session/end-seed': Record<string, never>
 ```
 
-来源：[`packages/core/session/src/types.ts:336`](../packages/core/session/src/types.ts)
+来源：[`packages/core/session/src/types.ts:348`](../packages/core/session/src/types.ts)
 
 <a id="sessiontitle--log-only"></a>
 

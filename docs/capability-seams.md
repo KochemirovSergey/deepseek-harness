@@ -114,15 +114,6 @@ flowchart LR
   pkg_agent_spine_demo["agent-spine-demo"]
   pkg_goal["goal"]
   svc_goals["ctx.goals<br/>Same-session goal domain"]
-  pkg_planning["planning"]
-  svc_planning["ctx.planning<br/>Adaptive planning Session domain"]
-  pkg_planning_calibration["planning-calibration"]
-  pkg_planning_observer["planning-observer"]
-  pkg_planning_review["planning-review"]
-  pkg_tool_planning["tool-planning"]
-  svc_planningCalibration["ctx.planningCalibration<br/>Derived estimate and scheduling calibration"]
-  svc_planningReview["ctx.planningReview<br/>Exact-hash human review and source seam"]
-  pkg_planning_source_governance["planning-source-governance"]
   pkg_e2b["e2b"]
   svc_e2b["ctx.e2b<br/>E2B sandbox lifecycle owner"]
   pkg_fs_e2b["fs-e2b"]
@@ -258,10 +249,6 @@ flowchart LR
   pkg_modules --> svc_clientModules
   pkg_permission_presets --> svc_permissionPresets
   pkg_plan_mode --> svc_planMode
-  pkg_planning --> svc_planning
-  pkg_planning_calibration --> svc_planningCalibration
-  pkg_planning_review --> svc_planningReview
-  pkg_planning_source_governance --> svc_planningReview
   pkg_pwsh_local --> svc_shell
   pkg_sandbox --> svc_sandbox
   pkg_sandbox_local --> svc_sandbox
@@ -355,10 +342,6 @@ flowchart LR
   svc_llm --> pkg_agent_loop
   svc_llm --> pkg_compaction_basic
   svc_lsp --> pkg_tool_lsp
-  svc_planning --> pkg_planning_calibration
-  svc_planning --> pkg_planning_observer
-  svc_planning --> pkg_planning_review
-  svc_planning --> pkg_tool_planning
   svc_sandbox --> pkg_bash_sandbox
   svc_sandbox --> pkg_terminal_bash
   svc_sandboxPolicy --> pkg_bash_sandbox
@@ -476,9 +459,6 @@ flowchart LR
 | `ctx.agentDefaultModel` | `core` | [`agent-default-model`](../packages/core/agent-default-model) | - | [`headless`](../packages/bundle/headless), [`host-apiproxy`](../packages/host/apiproxy) | - | Layers the default ModelSelection through settings so direct and Host-backed Agent entry points share one state owner. |
 | `ctx.agentLoop` | `bundle` | [`agent-loop`](../packages/core/agent-loop) | - | [`agent-spine-demo`](../packages/examples/agent-spine-demo) | - | The one concrete loop plugin; extension packages depend on dsh-agent events and services, not on this package. |
 | `ctx.goals` | `core` | [`goal`](../packages/goal/goal) | - | - | - | Folds revisioned objective state from the session log and keeps live continuation activation process-local. |
-| `ctx.planning` | `core` | [`planning`](../packages/planning/planning) | - | [`planning-calibration`](../packages/planning/planning-calibration), [`planning-observer`](../packages/planning/planning-observer), [`planning-review`](../packages/planning/planning-review), [`tool-planning`](../packages/planning/tool-planning) | - | Owns strict proposal, portfolio, attempt, slice, and metadata-observation replay for an exact live Agent. |
-| `ctx.planningCalibration` | `core` | [`planning-calibration`](../packages/planning/planning-calibration) | - | - | - | Rebuilds local samples from terminal planning events and recommends priority-preserving work within p90 capacity. |
-| `ctx.planningReview` | `seam` | [`planning-review`](../packages/planning/planning-review) | [`planning-source-governance`](../packages/planning/planning-source-governance) | - | - | Binds the full canonical proposal to a plan-review answer, Session event, and source adapter transaction. |
 | `ctx.e2b` | `core` | [`e2b`](../packages/e2b/e2b) | - | [`fs-e2b`](../packages/e2b/fs-e2b), [`subprocess-e2b`](../packages/e2b/subprocess-e2b) | - | Owns one shared E2B SDK handle, remote working directory, and final sandbox disposition so both fundamental E2B providers inhabit the same Linux runtime. |
 | `ctx.subprocess` | `seam` | [`subprocess`](../packages/subprocess/subprocess) | [`subprocess-local`](../packages/subprocess/subprocess-local), [`subprocess-e2b`](../packages/e2b/subprocess-e2b) | [`bash-local`](../packages/shell/bash-local), [`bash-sandbox`](../packages/shell/bash-sandbox), [`terminal-bash`](../packages/terminal/terminal-bash), [`lsp-stdio`](../packages/lsp/lsp-stdio), [`subagent-acp`](../packages/subagent/subagent-acp), [`subagent-codex`](../packages/subagent/subagent-codex), [`subagent-claude-code`](../packages/subagent/subagent-claude-code) | - | The bash executors, the PTY shell backend, the LSP host, and the out-of-process ACP, Codex, and Claude Code subagent backends spawn through ctx.subprocess; the service owns process coordinates, tree/session lifetime, stdio dispositions, terminal mechanics, and kill escalation. |
 | `ctx.shell` | `seam` | [`shell`](../packages/shell/shell) | [`bash-local`](../packages/shell/bash-local), [`bash-sandbox`](../packages/shell/bash-sandbox), [`pwsh-local`](../packages/shell/pwsh-local) | [`tool-bash`](../packages/shell/tool-bash), [`tool-pwsh`](../packages/shell/tool-pwsh), [`hooks-claude-code`](../packages/hooks/hooks-claude-code), [`hooks-codex`](../packages/hooks/hooks-codex) | - | The model-facing shell tools and hook bridges consume this seam; sandboxed, remote, or PowerShell executors replace bash-local without touching them. |

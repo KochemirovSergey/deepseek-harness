@@ -59,10 +59,8 @@ export interface PublicJobSnapshot {
   label: string
   status: JobSnapshot['status']
   detail?: string
-  progress?: NonNullable<JobSnapshot['progress']>
   startedAt: number
   finishedAt?: number
-  durationMs?: number
 }
 
 /** Shared schema for job-control outputs. */
@@ -79,20 +77,8 @@ const PUBLIC_TASK_SCHEMA = {
       enum: ['running', 'stopping', 'completed', 'killed', 'failed'],
     },
     detail: { type: 'string' },
-    progress: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        phase: { type: 'string' },
-        completedUnits: { type: 'number' },
-        totalUnits: { type: 'number' },
-        message: { type: 'string' },
-        updatedAt: { type: 'integer', required: true },
-      },
-    },
     startedAt: { type: 'integer', required: true },
     finishedAt: { type: 'integer' },
-    durationMs: { type: 'number' },
   },
 } as const
 
@@ -104,10 +90,8 @@ function publicJob(snapshot: JobSnapshot): PublicJobSnapshot {
     label: snapshot.label,
     status: snapshot.status,
     ...snapshot.detail !== undefined ? { detail: snapshot.detail } : {},
-    ...snapshot.progress !== undefined ? { progress: { ...snapshot.progress } } : {},
     startedAt: snapshot.startedAt,
     ...snapshot.finishedAt !== undefined ? { finishedAt: snapshot.finishedAt } : {},
-    ...snapshot.durationMs !== undefined ? { durationMs: snapshot.durationMs } : {},
   }
 }
 
