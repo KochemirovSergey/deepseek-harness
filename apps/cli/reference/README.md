@@ -12,6 +12,8 @@ Bundle names resolve from the dsh installation first, then from the profile dire
 
 The `web` and `headless` profiles auto-initialize from shipped templates on first use (`web`: base + web-app; `headless`: base + headless). Any other missing profile fails loud with a hint to run `dsh plugin --profile <name> add <package>`.
 
+`dsh --profile <name> --profile-read-only` and `dsh web --profile-read-only` require an already materialized selected profile: its manifest, `cordis.patch.yml`, compiled `cordis.yml`, and every expected installation fallback link must exist and agree with the running installation. This opt-in boot does not initialize, normalize, regenerate, heal, or watch `$DSH_HOME/profiles`; missing or inconsistent assets fail nonzero with an instruction to run once without the flag. It leaves session-state paths outside the profile tree unchanged. Config dumps and plugin management do not accept the flag.
+
 ### App arguments
 
 The launcher's flags come first and end at the first token it does not recognize; everything from there on is handed to the booted profile verbatim through `ctx.cmdlineArgs`, where any injected app plugin may parse it ([`dsh-cmdline`](../../../packages/boot/cmdline/README.md)). `dsh --profile web --port 8080` therefore reaches the web app's `--port`, `dsh --profile web --help` prints that app's help and boots nothing, and `dsh --help` (no profile to hand it to) prints the launcher's own. `-V`/`--version` prints the launcher's version when it appears before the app-argument boundary.
@@ -78,7 +80,7 @@ The production Web runner needs built package and frontend artifacts (`pnpm run 
 
 Process shutdown gives the plugin tree up to five seconds to dispose. The first `SIGINT`/`SIGTERM` starts that graceful drain — `SIGTERM` is a supervisor's ordinary stop request and exits 0 on every surface, `SIGINT` reports 130; a second signal forces immediate exit. If one-shot normal completion is already stuck in disposal, the first `Ctrl+C` is the escalation and exits immediately instead of being swallowed.
 
-All modes treat the invoking directory as the default workspace root, load applicable `AGENTS.md` or `CLAUDE.md` instructions with a 65,536-byte render budget, and use an in-memory SQLite session content index. Every profile boot watches valid edits of both `cordis.patch.yml` layers (profile and home) and reapplies them transactionally; a one-shot surface exits through its bounded shutdown, which disposes the watchers.
+All modes treat the invoking directory as the default workspace root, load applicable `AGENTS.md` or `CLAUDE.md` instructions with a 65,536-byte render budget, and use an in-memory SQLite session content index. Writable profile boots watch valid edits of both `cordis.patch.yml` layers (profile and home) and reapply them transactionally; a one-shot surface exits through its bounded shutdown, which disposes the watchers. `--profile-read-only` starts no profile-tree watcher.
 
 New sessions default to the `workspace-write` permission preset. Bash and filesystem mutations are restricted to the session workspace and platform temporary roots; reads and network access are not confined, while process visibility depends on the selected sandbox backend — bwrap runs commands in a private PID namespace that hides host processes, and Landlock and Seatbelt leave host process visibility unchanged. `DSH_PERMISSION_MODE` changes the process fallback. Stored General-settings permissions affect later Web sessions, not an already-open one.
 

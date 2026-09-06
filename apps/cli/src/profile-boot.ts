@@ -11,13 +11,14 @@
  * @module @deepseek-ai/dsh/profile-boot
  */
 
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { FiberState, type Context } from '@deepseek-ai/cordis'
 import type { PatchOptions } from '@deepseek-ai/cordis-plugin-include'
 import type { EntryOptions } from '@deepseek-ai/cordis-plugin-loader'
 import {
+  assertProfilesModuleFallback,
   boot,
   composeEntries,
   healProfilesModuleFallback,
@@ -93,12 +94,27 @@ export function resolveTelemetryPatch(disabledEnv: string | undefined, hasRow: b
  * on the same file, so both compose over the identical base).
  * @param name - the profile name.
  * @param userLayer - `false` skips parsing `cordis.patch.yml` (the default dump).
+ * @param readOnly - require pre-materialized profile boot assets without changing them.
  * @returns the loaded profile.
  */
-export function prepareProfile(name: string, userLayer = true): Profile {
-  healProfilesModuleFallback(INSTALL_ANCHOR)
-  const profile = loadProfile(NAME, name, INSTALL_ANCHOR, undefined, { userLayer })
-  writeFileSync(join(profile.dir, PROFILE_ROOT_FILENAME), PROFILE_ROOT_CONFIG)
+export function prepareProfile(name: string, userLayer = true, readOnly = false): Profile {
+  if (!readOnly) healProfilesModuleFallback(INSTALL_ANCHOR)
+  const profile = loadProfile(NAME, name, INSTALL_ANCHOR, undefined, { userLayer, readOnly })
+  if (readOnly) assertProfilesModuleFallback(NAME, INSTALL_ANCHOR)
+  const rootPath = join(profile.dir, PROFILE_ROOT_FILENAME)
+  if (readOnly) {
+    let rootConfig: string
+    try {
+      rootConfig = readFileSync(rootPath, 'utf8')
+    } catch (error) {
+      throw new Error(`${NAME}: read-only profile boot requires materialized root config ${rootPath}; run without --profile-read-only to materialize profile ${JSON.stringify(name)}`, { cause: error })
+    }
+    if (rootConfig !== PROFILE_ROOT_CONFIG) {
+      throw new Error(`${NAME}: read-only profile boot requires compiled root config ${rootPath}; run without --profile-read-only to rematerialize profile ${JSON.stringify(name)}`)
+    }
+  } else {
+    writeFileSync(rootPath, PROFILE_ROOT_CONFIG)
+  }
   return profile
 }
 
@@ -137,13 +153,15 @@ function allPatches(composed: ComposedProfile): PatchOptions[] {
  * then the telemetry switch.
  * @param name - the profile name.
  * @param patchFiles - `--patch` overlay paths, in argv order.
+ * @param readOnly - require pre-materialized profile boot assets without changing them.
  * @returns the profile, its patch layers, and the composed row index.
  */
 function composeProfile(
   name: string,
   patchFiles: readonly string[],
+  readOnly = false,
 ): ComposedProfile {
-  const profile = prepareProfile(name)
+  const profile = prepareProfile(name, true, readOnly)
   const homePatches = loadOptionalPatches(NAME, homePatchPath()) ?? []
   const overlays = patchFiles.flatMap(file => loadOverlayPatches(NAME, resolve(file)))
   const bundlePatches = profile.layers.flatMap(layer => layer.patches)
@@ -178,6 +196,8 @@ export interface RunProfileOptions {
   profile: string
   /** `--patch` overlay paths, in argv order. */
   patchFiles: readonly string[]
+  /** Do not initialize, heal, normalize, regenerate, or watch the profile tree. */
+  profileReadOnly?: boolean
   /** The invocation's inner arguments, handed to the tree through `ctx.cmdlineArgs`. */
   args: readonly string[]
 }
@@ -205,7 +225,7 @@ function suppressShutdownError(ctx: Context, signal: AbortSignal, error: unknown
  * @returns the settled root context and the shutdown controller.
  */
 export async function runProfile(options: RunProfileOptions): Promise<{ ctx: Context; shutdown: ProcessShutdown }> {
-  const composed = composeProfile(options.profile, options.patchFiles)
+  const composed = composeProfile(options.profile, options.patchFiles, options.profileReadOnly === true)
   const app: { current?: Context } = {}
   const shutdown = createProcessShutdown(async () => { await app.current?.fiber.dispose() })
   const signalShutdown = new AbortController()
@@ -265,7 +285,8 @@ export async function runProfile(options: RunProfileOptions): Promise<{ ctx: Con
   // landed mid-setup. Watching is unconditional: a one-shot surface exits
   // through its bounded shutdown, which disposes the watchers before the
   // loop drains.
-  if (!signalShutdown.signal.aborted
+  if (options.profileReadOnly !== true
+    && !signalShutdown.signal.aborted
     && ctx.fiber.state === FiberState.ACTIVE
     && ctx.get('loader') !== undefined) {
     try {

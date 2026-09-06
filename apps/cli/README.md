@@ -38,7 +38,7 @@ The tree composes over an empty root:
 
 Bundles named in `dsh.profile.bundles` resolve from the dsh installation first (`@deepseek-ai/dsh-base`, `@deepseek-ai/dsh-web-app`, `@deepseek-ai/dsh-headless`), then from the profile's own `node_modules`, where pnpm installs out-of-tree plugins.
 
-Use `--dump-default-config` and `--dump-config` to inspect the composed tree without booting it.
+Use `--dump-default-config` and `--dump-config` to inspect the composed tree without booting it. `--profile-read-only` is an opt-in boot mode for a pre-materialized deployment profile; it never initializes, heals, normalizes, regenerates, or watches `$DSH_HOME/profiles`, and fails with a materialization instruction when a required profile asset is absent or inconsistent.
 
 The [CLI behavior reference](reference/README.md) owns exact layer precedence, flags, shutdown behavior, deployment defaults, and source execution.
 

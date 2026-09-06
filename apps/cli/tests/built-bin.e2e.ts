@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -489,6 +489,42 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
       expect(existsSync(fixture.disposed)).toBe(true)
     } finally {
       child.kill('SIGKILL')
+      rmSync(fixture.home, { recursive: true, force: true })
+    }
+  }, 30_000)
+
+  it.skipIf(process.platform === 'win32')('boots a materialized non-writable profile without writes and fails closed when its root config is absent', async () => {
+    const fixture = createProfileLifecycleFixture()
+    const profileDir = join(fixture.home, 'profiles', 'lifecycle')
+    const profilesDir = join(fixture.home, 'profiles')
+    const fallbackDir = join(profilesDir, 'node_modules')
+    const rootConfig = join(profileDir, 'cordis.yml')
+    let child: ReturnType<typeof startProfileLifecycle> | undefined
+    try {
+      const materialize = await runBuiltBin(['--profile', 'lifecycle', '--dump-config'], { DSH_HOME: fixture.home }, fixture.home)
+      expect(materialize.code, materialize.stderr).toBe(0)
+      rmSync(rootConfig)
+      const missing = await runBuiltBin(['--profile', 'lifecycle', '--profile-read-only'], { DSH_HOME: fixture.home }, fixture.home)
+      expect(missing.code).toBe(1)
+      expect(missing.stderr).toContain('read-only profile boot requires materialized root config')
+
+      const rematerialize = await runBuiltBin(['--profile', 'lifecycle', '--dump-config'], { DSH_HOME: fixture.home }, fixture.home)
+      expect(rematerialize.code, rematerialize.stderr).toBe(0)
+      chmodSync(profilesDir, 0o555)
+      chmodSync(fallbackDir, 0o555)
+      chmodSync(profileDir, 0o555)
+      for (const file of ['package.json', 'cordis.patch.yml', 'cordis.yml']) chmodSync(join(profileDir, file), 0o444)
+
+      child = startProfileLifecycle(fixture, ['--profile-read-only'])
+      await waitForFile(fixture.ready)
+      requestProfileShutdown(child, fixture)
+      expect((await child).exitCode).toBe(0)
+      child = undefined
+    } finally {
+      child?.kill('SIGKILL')
+      chmodSync(profilesDir, 0o755)
+      chmodSync(fallbackDir, 0o755)
+      chmodSync(profileDir, 0o755)
       rmSync(fixture.home, { recursive: true, force: true })
     }
   }, 30_000)

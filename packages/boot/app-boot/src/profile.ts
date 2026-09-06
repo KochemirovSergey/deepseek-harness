@@ -201,29 +201,8 @@ function ensureSymlink(link: string, target: string): void {
   }
 }
 
-/**
- * Maintain the flat module fallback `$DSH_HOME/profiles/node_modules`: one
- * symlink per package in the dsh app's resolvable dependency CLOSURE (BFS
- * over `dependencies` from the app manifest), each resolved from its own
- * real location. Node's parent-directory walk from any profile finds this
- * directory after the profile's own `node_modules`, so every in-box plugin
- * resolves without pnpm ever managing it — the exact "bundles come from the
- * installation" contract. The closure (not just direct dependencies) is
- * required for out-of-tree plugins: their peer dependencies name Service
- * Definition packages (`dsh-compaction`, `dsh-invariants`, ...) that the app
- * reaches only through its Service Provider packages. Symlinked packages
- * resolve their own dependencies from their real directories (Node's default
- * symlink-following), so each package needs only its one flat link.
- * Idempotent: correct links are kept and moved installations are
- * re-pointed; a stale link to a vanished package stays until its name is
- * reused (dangling links are invisible to resolution).
- * @param installAnchor - absolute path of the dsh app's package.json.
- * @param home - the Harness home; defaults to {@link resolveDshHome}.
- */
-export function healProfilesModuleFallback(installAnchor: string, home: string = resolveDshHome()): void {
-  const profilesDir = join(home, PROFILES_DIR)
-  const modulesDir = join(profilesDir, 'node_modules')
-  mkdirSync(modulesDir, { recursive: true })
+/** Resolve every installation package the shared profile fallback must expose. */
+function profileFallbackLinks(installAnchor: string): Map<string, string> {
   const appManifest = JSON.parse(readFileSync(installAnchor, 'utf8')) as ProfileManifest
   const links = new Map<string, string>()
   /* v8 ignore next -- a real app manifest always declares its name */
@@ -247,10 +226,51 @@ export function healProfilesModuleFallback(installAnchor: string, home: string =
       queue.push({ anchor: manifestPath, manifest: JSON.parse(readFileSync(manifestPath, 'utf8')) as ProfileManifest })
     }
   }
-  for (const [packageName, target] of links) {
+  return links
+}
+
+/**
+ * Maintain the flat module fallback `$DSH_HOME/profiles/node_modules`: one
+ * symlink per package in the dsh app's resolvable dependency CLOSURE (BFS
+ * over `dependencies` from the app manifest), each resolved from its own
+ * real location. Node's parent-directory walk from any profile finds this
+ * directory after the profile's own `node_modules`, so every in-box plugin
+ * resolves without pnpm ever managing it.
+ * @param installAnchor - absolute path of the dsh app's package.json.
+ * @param home - the Harness home; defaults to {@link resolveDshHome}.
+ */
+export function healProfilesModuleFallback(installAnchor: string, home: string = resolveDshHome()): void {
+  const modulesDir = join(home, PROFILES_DIR, 'node_modules')
+  mkdirSync(modulesDir, { recursive: true })
+  for (const [packageName, target] of profileFallbackLinks(installAnchor)) {
     const link = join(modulesDir, packageName)
     mkdirSync(dirname(link), { recursive: true })
     ensureSymlink(link, target)
+  }
+}
+
+/**
+ * Verify the pre-materialized installation fallback without changing it.
+ * @param binName - diagnostic prefix on the thrown error.
+ * @param installAnchor - absolute path of the dsh app's package.json.
+ * @param home - the Harness home; defaults to {@link resolveDshHome}.
+ * @throws when an expected fallback link is absent, not a symlink, or targets a different package.
+ */
+export function assertProfilesModuleFallback(
+  binName: string, installAnchor: string, home: string = resolveDshHome(),
+): void {
+  const modulesDir = join(home, PROFILES_DIR, 'node_modules')
+  for (const [packageName, target] of profileFallbackLinks(installAnchor)) {
+    const link = join(modulesDir, packageName)
+    let stat
+    try {
+      stat = lstatSync(link)
+    } catch (error) {
+      throw new Error(`${binName}: read-only profile boot requires materialized fallback link ${link}; run without --profile-read-only to materialize profiles`, { cause: error })
+    }
+    if (!stat.isSymbolicLink() || readlinkSync(link) !== target) {
+      throw new Error(`${binName}: read-only profile boot requires fallback link ${link} to target ${target}; run without --profile-read-only to materialize profiles`)
+    }
   }
 }
 
@@ -365,15 +385,21 @@ export function resolveBundleDir(
  * @param home - the Harness home; defaults to {@link resolveDshHome}.
  * @param options - `userLayer: false` skips reading `cordis.patch.yml`, so a
  * bundles-only consumer (`--dump-default-config`, a recovery diagnostic)
- * cannot fail on a broken user layer.
+ * cannot fail on a broken user layer. `readOnly: true` requires the selected
+ * profile and its user layer to already exist and skips initialization and
+ * shipped-profile normalization.
  * @returns the loaded profile (empty `patches` when the user layer is skipped).
  */
 export function loadProfile(
   binName: string, name: string, installAnchor: string, home: string = resolveDshHome(),
-  options: { userLayer?: boolean } = {},
+  options: { userLayer?: boolean; readOnly?: boolean } = {},
 ): Profile {
   const dir = resolveProfileDir(name, home)
-  if (!existsSync(join(dir, 'package.json'))) {
+  const manifestPath = join(dir, 'package.json')
+  if (!existsSync(manifestPath)) {
+    if (options.readOnly) {
+      throw new Error(`${binName}: read-only profile boot requires materialized profile manifest ${manifestPath}; run without --profile-read-only to materialize profile ${JSON.stringify(name)}`)
+    }
     const template = PROFILE_TEMPLATES[name]
     if (template === undefined) {
       throw new Error(
@@ -382,7 +408,8 @@ export function loadProfile(
     }
     initProfile(dir, template)
   }
-  const manifest = normalizeShippedProfile(name, dir, readProfileManifest(binName, dir))
+  const loadedManifest = readProfileManifest(binName, dir)
+  const manifest = options.readOnly ? loadedManifest : normalizeShippedProfile(name, dir, loadedManifest)
   // A hand-written profile manifest may omit the dsh section entirely.
   const bundles = manifest.dsh?.profile?.bundles ?? []
   const layers = bundles.map((packageName): ProfileLayer => {
@@ -396,6 +423,9 @@ export function loadProfile(
     return { packageName, packageDir, patchPath, patches: loadOverlayPatches(binName, patchPath) }
   })
   const patchPath = join(dir, PROFILE_PATCH_FILENAME)
+  if (options.readOnly && options.userLayer !== false && !existsSync(patchPath)) {
+    throw new Error(`${binName}: read-only profile boot requires materialized profile patch ${patchPath}; run without --profile-read-only to materialize profile ${JSON.stringify(name)}`)
+  }
   const patches = options.userLayer !== false && existsSync(patchPath)
     ? loadOverlayPatches(binName, patchPath)
     : []

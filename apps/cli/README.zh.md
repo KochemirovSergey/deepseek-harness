@@ -40,7 +40,7 @@ profile 目录包含一个 `package.json`，其中记录树外插件依赖，以
 
 `dsh.profile.bundles` 中列出的组合包先从 dsh 安装目录解析（`@deepseek-ai/dsh-base`、`@deepseek-ai/dsh-web-app`、`@deepseek-ai/dsh-headless`），再从 profile 自身的 `node_modules` 解析；pnpm 会将树外插件安装到该目录。
 
-使用 `--dump-default-config` 和 `--dump-config` 可在不启动的情况下检查组合后的配置树。
+使用 `--dump-default-config` 和 `--dump-config` 可在不启动的情况下检查组合后的配置树。`--profile-read-only` 是为预先物化的部署 profile 提供的显式启动模式；它绝不初始化、修复、规范化、重新生成或监视 `$DSH_HOME/profiles`，所需 profile 资产缺失或不一致时会给出物化指引并失败。
 
 层的确切优先级、flag、关闭行为、部署默认值和源码执行方式，以 [CLI（命令行界面）行为参考](reference/README.zh.md)为准。
 

@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+  assertProfilesModuleFallback,
   composeEntries,
   healProfilesModuleFallback,
   initProfile,
@@ -188,6 +189,27 @@ describe('loadProfile', () => {
     ])
   })
 
+  it('requires existing profile assets and skips normalization in read-only mode', () => {
+    const anchor = stageInstallation({
+      '@deepseek-ai/dsh-base': { patch: '[]\n' },
+      '@deepseek-ai/dsh-web-app': { patch: '[]\n' },
+      '@deepseek-ai/dsh-headless': { patch: '[]\n' },
+    })
+    const home = tmp()
+    expect(() => loadProfile('t', 'web', anchor, home, { readOnly: true }))
+      .toThrow('read-only profile boot requires materialized profile manifest')
+
+    const dir = resolveProfileDir('headless', home)
+    initProfile(dir, ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-headless'])
+    loadProfile('t', 'headless', anchor, home, { readOnly: true })
+    expect(readProfileManifest('t', dir).dsh?.profile?.bundles).toEqual([
+      '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-headless',
+    ])
+    rmSync(join(dir, PROFILE_PATCH_FILENAME))
+    expect(() => loadProfile('t', 'headless', anchor, home, { readOnly: true }))
+      .toThrow('read-only profile boot requires materialized profile patch')
+  })
+
   it('fails loud when a listed bundle declares no dsh.bundle', () => {
     const anchor = stageInstallation({ 'not-a-bundle': {} })
     const home = tmp()
@@ -227,6 +249,7 @@ describe('healProfilesModuleFallback', () => {
     writeFileSync(join(modules, 'dep-of-a', 'package.json'), JSON.stringify({ name: 'dep-of-a', version: '0.0.0' }))
     const home = tmp()
     healProfilesModuleFallback(anchor, home)
+    expect(() => assertProfilesModuleFallback('t', anchor, home)).not.toThrow()
     const fallback = join(home, 'profiles', 'node_modules')
     // App deps, the bundle's own deps, and the bundle itself are linked; the
     // plain library is linked as an app dep (harmless), the app itself too.
@@ -237,6 +260,17 @@ describe('healProfilesModuleFallback', () => {
     healProfilesModuleFallback(anchor, home)
     const before = readlinkSync(join(fallback, 'dep-of-a'))
     expect(before).toContain('dep-of-a')
+  })
+
+  it('fails closed when a materialized fallback link is missing or inconsistent', () => {
+    const anchor = stageInstallation({})
+    const home = tmp()
+    expect(() => assertProfilesModuleFallback('t', anchor, home)).toThrow('requires materialized fallback link')
+    healProfilesModuleFallback(anchor, home)
+    const link = join(home, 'profiles', 'node_modules', 'dsh-app')
+    rmSync(link)
+    symlinkSync(tmp(), link, 'junction')
+    expect(() => assertProfilesModuleFallback('t', anchor, home)).toThrow('requires fallback link')
   })
 
   it('throws when a fallback entry is a real directory', () => {
