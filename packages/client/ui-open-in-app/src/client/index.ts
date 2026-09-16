@@ -30,8 +30,10 @@ export const inject = ['sessions', 'slots', 'locale']
 /**
  * Client plugin body: register the dictionaries and the header split button.
  * @param ctx - client root context.
+ * @param config - server-owned instance capabilities.
  */
-export function apply(ctx: ClientContext): void {
+export function apply(ctx: ClientContext, config?: { instanceCapabilities?: { restricted: boolean } }): void {
+  if (config?.instanceCapabilities?.restricted === true) return
   const controller = new OpenInAppController()
   void controller.load()
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'open-in-app: dictionaries')

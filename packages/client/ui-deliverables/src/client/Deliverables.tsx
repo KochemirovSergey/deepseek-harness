@@ -18,6 +18,8 @@ const COLLAPSED_PRESENTED_COUNT = 4
 
 /** Native-open callbacks and shared gesture status supplied by the plugin. */
 export interface DeliverablesInjected {
+  /** Whether this instance permits opening files in Host applications. */
+  nativeActions?: boolean
   hooks: {
     presentedOpen: ObservableSnapshot<ReturnType<PresentedOpenController['state']['getSnapshot']>>
     presentedHost: ObservableSnapshot<ReturnType<PresentedOpenController['host']['getSnapshot']>>
@@ -42,7 +44,7 @@ export function selectDeliverables(owner: TurnTailOwnerProps): DeliverablesMatch
  * @param props - matched files, workspace opener, and localized copy.
  * @returns the closing turn's file rows.
  */
-export function Deliverables({ matched, openFile, t, sessionId, useSessions, openPresented, usePresentedOpen, usePresentedHost, reloadPresentedHost }: Pick<TurnTailOwnerProps, 'openFile'> & {
+export function Deliverables({ matched, openFile, t, sessionId, useSessions, openPresented, usePresentedOpen, usePresentedHost, reloadPresentedHost, nativeActions = true }: Pick<TurnTailOwnerProps, 'openFile'> & {
   matched: DeliverablesMatch
 } & PropsLocale<typeof NS> & Pick<SessionStandardProps, 'sessionId'> & Pick<GlobalStandardProps, 'useSessions'> & InjectFace<DeliverablesInjected>) {
   const [expanded, setExpanded] = useState(false)
@@ -54,23 +56,23 @@ export function Deliverables({ matched, openFile, t, sessionId, useSessions, ope
     ? matched.presented.slice(0, COLLAPSED_PRESENTED_COUNT)
     : matched.presented
   useEffect(() => {
-    if (matched.presented.length > 0 && host === null) void reloadPresentedHost()
-  }, [matched.presented.length, host, reloadPresentedHost])
+    if (nativeActions && matched.presented.length > 0 && host === null) void reloadPresentedHost()
+  }, [nativeActions, matched.presented.length, host, reloadPresentedHost])
   return <>
     {matched.produced.length > 0 && <ProducedFiles matched={matched.produced} openFile={openFile} t={t} />}
     {matched.presented.length > 0 && <div
       className={css.root}
       data-after-produced-files={matched.produced.length > 0 || undefined}
     >
-      {host === 'error' && <div className={css.hostStatus}>
+      {nativeActions && host === 'error' && <div className={css.hostStatus}>
         <span>{t('presented.hostError')}</span>
         <Button size="sm" onClick={() => { void reloadPresentedHost() }}>{t('presented.retry')}</Button>
       </div>}
-      {host !== null && host !== 'error' && !host.available && <span className={css.hostStatus}>{t('presented.unavailable')}</span>}
+      {nativeActions && host !== null && host !== 'error' && !host.available && <span className={css.hostStatus}>{t('presented.unavailable')}</span>}
       <div className={css.presented} data-presented-files-row data-single={matched.presented.length === 1 ? true : undefined}>
         {presented.map(file => <PresentedFileCard key={`${file.seq}:${file.index}`} file={file} cwd={cwd}
           phase={states[presentedFileUrl(sessionId, file.seq, file.index)]}
-          host={host === 'error' ? null : host} t={t}
+          host={host === 'error' ? null : host} t={t} nativeActions={nativeActions}
           onPreview={() => { openFile(file.path) }}
           onAction={(action) => { void openPresented(sessionId, file.seq, file.index, action) }} />)}
       </div>

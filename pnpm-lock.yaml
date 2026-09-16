@@ -2177,7 +2177,6 @@ importers:
         version: 18.3.1
 
   packages/client/modules:
-    dependencies:
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: workspace:^
@@ -5306,10 +5305,10 @@ importers:
       '@deepseek-ai/dsh-home-paths':
         specifier: workspace:^
         version: link:../../util/home-paths
-
       '@deepseek-ai/dsh-launch-environment':
         specifier: workspace:^
         version: link:../../util/launch-environment
+
   packages/e2b/e2b:
     dependencies:
       '@deepseek-ai/schemastery':
@@ -6766,6 +6765,9 @@ importers:
       '@deepseek-ai/cordis':
         specifier: workspace:^
         version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-launch-environment':
+        specifier: workspace:^
+        version: link:../../util/launch-environment
       '@types/compression':
         specifier: ^1.8.1
         version: 1.8.1
@@ -7063,10 +7065,10 @@ importers:
       '@deepseek-ai/dsh-invariants':
         specifier: workspace:^
         version: link:../../runtime-diagnostics/invariants
-
       '@deepseek-ai/dsh-launch-environment':
         specifier: workspace:^
         version: link:../../util/launch-environment
+
   packages/llm/llm-deepseek:
     dependencies:
       '@deepseek-ai/dsh-brand':
@@ -9860,10 +9862,10 @@ importers:
       '@deepseek-ai/dsh-http-proxy':
         specifier: workspace:^
         version: link:../../util/http-proxy
-
       '@deepseek-ai/dsh-launch-environment':
         specifier: workspace:^
         version: link:../../util/launch-environment
+
   packages/subprocess/subprocess-local:
     dependencies:
       '@deepseek-ai/dsh-launch-environment':

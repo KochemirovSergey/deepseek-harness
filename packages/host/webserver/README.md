@@ -25,6 +25,8 @@ Browsers reach the web GUI over HTTP through `dsh-host-webserver`: a `node:http`
 <a id="use-this-package"></a>
 ## Use this package
 
+In restricted instances, the launch policy rejects unlisted HTTP paths and WebSocket upgrades before invoking any plugin handler or SPA fallback. Only browser assets and the approved conversation/file carriers reach their operation owners.
+
 Compose the webserver as the HTTP transport of a browser-facing host, then let the feature plugins claim their routes. Activation listens immediately; registration order carries no request-facing semantics because named routes compose to be disjoint.
 
 ### Minimal configuration

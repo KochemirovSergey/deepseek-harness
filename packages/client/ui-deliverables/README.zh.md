@@ -25,6 +25,8 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
+受限实例的文件卡片和正文链接使用侧栏预览；宿主应用操作和桌面元数据请求已禁用。
+
 与 `ui-conversation` 一起挂载本插件；已完成轮次随即以产出文件行收尾，位于收尾消息正文与其动作页脚之间。每个标签项经属主的 `openFile` 打开文件——chat 视图把它路由到右侧 Sidebar 作为一个文本预览 tab——相对路径按会话 cwd 解析。该行不提供文件夹动作：Sidebar 没有目录形态，因此省略文件的余数只是一个标签才会打开会话工作区。
 
 <a id="explicit-deliveries"></a>

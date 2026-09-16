@@ -1,11 +1,12 @@
 /**
  * @deepseek-ai/dsh-host-webserver — node:http route registration with optional
- * gzip, index injection, and one fallback seat. It knows no harness concepts
+ * gzip, index injection, and one fallback seat. It enforces the launch HTTP policy
  * and serves no files; the composing application owns dist serving. Electron
  * uses file:// plus IPC instead, and this package never prints the URL.
  * Route handlers retain direct response ownership.
  */
 
+import { instanceHttpAllowed } from '@deepseek-ai/dsh-launch-environment'
 import { createServer } from 'node:http'
 import type { IncomingMessage, ServerResponse, Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -222,6 +223,11 @@ export class WebServer extends Service {
       /* v8 ignore next -- `?? '/'` arm: node:http always sets url on server
       requests; the field is only optional on the client-side IncomingMessage type */
       const rawPath = new URL(req.url ?? '/', 'http://x').pathname
+      if (!instanceHttpAllowed(req.method ?? '', rawPath)) {
+        res.writeHead(403)
+        res.end('Instance policy denies this route')
+        return
+      }
       const route = this.match(rawPath)
       if (route !== undefined) {
         await route.handler(req, res)
@@ -267,7 +273,12 @@ export class WebServer extends Service {
       let route: WebUpgradeRoute | undefined
       try {
         /* v8 ignore next -- node:http always sets url on server requests. */
-        route = this.upgrades.get(new URL(req.url ?? '/', 'http://x').pathname)
+        const pathname = new URL(req.url ?? '/', 'http://x').pathname
+        if (!instanceHttpAllowed(req.method ?? '', pathname, true)) {
+          socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n')
+          return
+        }
+        route = this.upgrades.get(pathname)
       } catch (error) {
         this.ctx.logger.warn(error instanceof Error ? error : new Error(String(error)))
         socket.destroy()

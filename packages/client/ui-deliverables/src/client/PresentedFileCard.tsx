@@ -22,7 +22,8 @@ function cardDescription(description: string | undefined, fallback: string): str
  * @param props - durable file metadata, Sidebar preview, Host capabilities, gesture status, and localized copy.
  * @returns the file card and its anchored action menu.
  */
-export function PresentedFileCard({ file, cwd, phase, host, onPreview, onAction, t }: {
+export function PresentedFileCard({ file, cwd, phase, host, onPreview, onAction, t, nativeActions = true }: {
+  nativeActions?: boolean
   file: PresentedPath
   cwd: string | undefined
   phase: PresentedOpenPhase | undefined
@@ -65,7 +66,7 @@ export function PresentedFileCard({ file, cwd, phase, host, onPreview, onAction,
         <button ref={previewRef} type="button" className={css.open}
           aria-label={t('presented.previewButton', { name: file.path })}
           onClick={onPreview}>{t('presented.action')}</button>
-        <Menu className={css.menuAnchor} open={menuOpen && !menuDisabled} autoFocus portal align="end" onClose={() => { setMenuOpen(false) }}
+        {nativeActions && <Menu className={css.menuAnchor} open={menuOpen && !menuDisabled} autoFocus portal align="end" onClose={() => { setMenuOpen(false) }}
           anchor={<button type="button" className={css.chevron} disabled={menuDisabled}
             aria-haspopup="menu" aria-expanded={menuOpen && !menuDisabled}
             aria-label={t('presented.more', { name: file.path })}
@@ -78,7 +79,7 @@ export function PresentedFileCard({ file, cwd, phase, host, onPreview, onAction,
             { id: 'reveal', icon: <IconFolderOpenOutline16 />,
               label: t(`presented.${reveal}`) },
           ]}
-          onSelect={(id) => { act(id === 'reveal' ? 'reveal' : 'open') }} />
+          onSelect={(id) => { act(id === 'reveal' ? 'reveal' : 'open') }} />}
       </div>
     </div>
   </div>

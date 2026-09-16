@@ -38,8 +38,10 @@ export const inject = ['slots', 'locale', 'uiConversation', 'remote', 'remote.se
 /**
  * Client plugin body: register the dictionaries and the turn-tail entry.
  * @param ctx - client root context.
+ * @param config - server-owned instance capabilities.
  */
-export function apply(ctx: ClientContext): void {
+export function apply(ctx: ClientContext, config?: { instanceCapabilities?: { restricted: boolean } }): void {
+  const nativeActions = config?.instanceCapabilities?.restricted !== true
   const opener = new PresentedOpenController()
   ctx.effect(() => () => opener.dispose())
   ctx.on('connection/reset', () => { opener.resetHost() })
@@ -53,6 +55,7 @@ export function apply(ctx: ClientContext): void {
       locale: NS,
       inject: (): DeliverablesInjected => ({
         hooks: { presentedOpen: opener.state, presentedHost: opener.host },
+        nativeActions,
         reloadPresentedHost: () => opener.loadHost(),
         openPresented: (sessionId, seq, index, action) => opener.open(sessionId, seq, index, action),
       }),
@@ -74,7 +77,7 @@ export function apply(ctx: ClientContext): void {
       const deliveries = new Map(presented.map(file => [file.path, file]))
       return producedFileMentions([...new Set([...paths ?? [], ...deliveries.keys()])], (path) => {
         const file = deliveries.get(path)
-        if (file === undefined) owner.openFile(path)
+        if (file === undefined || !nativeActions) owner.openFile(path)
         else void opener.open(sessionId, file.seq, file.index)
       }, path => t(deliveries.has(path) ? 'presented.open' : 'produced.open', { name: path }))
     },

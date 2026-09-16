@@ -24,6 +24,8 @@ Use `@deepseek-ai/dsh-launch-environment` to resolve launch-time environment val
 <a id="use-this-package"></a>
 ## Use this package
 
+The HTTP server applies the same policy before all plugin routes and upgrades, including routes outside `/api`. Unlisted methods and paths are rejected before their handlers run.
+
 Resolve user-facing values through the snapshot instead of `process.env` whenever the layers are not equally trusted — for example a credential override a caller must never take from a project directory.
 
 ### Resolving a value

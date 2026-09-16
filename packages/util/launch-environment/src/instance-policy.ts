@@ -120,6 +120,27 @@ const REMOTE_OPERATIONS = new Set([
 ])
 
 /**
+ * Restrict every HTTP carrier before a plugin route or fallback can run.
+ * @param method - HTTP request method.
+ * @param pathname - URL-normalized path without query parameters.
+ * @param upgrade - whether the request asks to upgrade its connection.
+ * @returns whether the request may reach its authenticated operation owner.
+ */
+export function instanceHttpAllowed(method: string, pathname: string, upgrade = false): boolean {
+  if (instancePolicy === undefined) return true
+  if (upgrade) return method === 'GET' && pathname === '/api/remote.mux'
+  if (method === 'GET' || method === 'HEAD') {
+    return pathname === '/' || pathname === '/favicon.ico'
+      || pathname.startsWith('/assets/') || pathname.startsWith('/plugins/')
+      || pathname === '/api/file'
+  }
+  if (method !== 'POST') return false
+  return pathname === '/api/session/uploadFileBinary'
+    || pathname === '/api/$events/result'
+    || (pathname.startsWith('/api/') && REMOTE_OPERATIONS.has(pathname.slice(5)))
+}
+
+/**
  * Authorize a Remote operation before decoding scoped arguments or activating an Agent.
  * @param endpoint - Fully qualified Remote namespace and method.
  * @param args - Named wire arguments before decoding.

@@ -25,6 +25,8 @@ This package provides the browser surface of the open-in-app feature: a Session-
 <a id="use-this-package"></a>
 ## Use this package
 
+Restricted instances do not register the Host application button or request the installed-application catalog.
+
 Mount this plugin in the Web composition beside [`dsh-host-open-in-app`](../../host/open-in-app/README.md); the pair composes the whole feature in two cordis.yml rows and this row takes no config. The Session header grows an "Open In..." split button whenever the host probed at least one installed catalog application and the session has a known workspace directory.
 
 ### What to expect

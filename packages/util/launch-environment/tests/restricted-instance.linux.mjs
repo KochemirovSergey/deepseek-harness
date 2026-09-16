@@ -30,6 +30,31 @@ try {
     ['packages/subprocess/subprocess-local', undefined],
     ['packages/shell/bash-sandbox', { cwd: workspace, timeoutMs: 10000 }],
   ]) await ctx.plugin((await moduleAt(rel)).default, config);
+  await check('custom HTTP and upgrade routes are denied before plugin side effects', async () => {
+    await ctx.plugin((await moduleAt('packages/host/webserver')).WebServer, { host: '127.0.0.1', port: 0, compression: 'none' });
+    let effects = 0;
+    const paths = ['/open-in-app/open', '/openai-codex/auth/login', '/api/custom-admin', '/future-admin'];
+    const disposers = paths.map(path => ctx.webServer.register({ kind: 'exact', path, handler: (_req, res) => { effects++; res.end('unsafe'); } }));
+    disposers.push(ctx.webServer.registerUpgrade({ path: '/future-upgrade', handler: (_req, socket) => { effects++; socket.destroy(); } }));
+    disposers.push(ctx.webServer.registerFallback((_req, res) => { effects++; res.end('fallback'); }));
+    const base = `http://127.0.0.1:${ctx.webServer.port}`;
+    try {
+      for (const path of paths) for (const method of ['GET', 'POST']) {
+        const response = await fetch(base + path, { method });
+        assert.equal(response.status, 403); await response.text();
+      }
+      const { request } = await import('node:http');
+      await new Promise((resolve, reject) => {
+        const req = request(base + '/future-upgrade', { headers: { Connection: 'Upgrade', Upgrade: 'websocket' } }, res => {
+          try { assert.equal(res.statusCode, 403); res.resume(); resolve(); } catch (error) { reject(error); }
+        });
+        req.on('error', reject); req.end();
+      });
+      assert.equal(effects, 0);
+      const index = await fetch(base + '/'); assert.equal(index.status, 200); await index.text();
+      assert.equal(effects, 1);
+    } finally { for (const dispose of disposers.reverse()) dispose(); }
+  });
   await check('explicit policy overrides cannot widen rights', async () => {
     assert.equal(ctx.sandboxPolicy.resolve({ mode: 'danger-full-access' }).mode, 'workspace-write');
     assert.equal(ctx.sandboxPolicy.resolve().workspaceRoot, workspace);
