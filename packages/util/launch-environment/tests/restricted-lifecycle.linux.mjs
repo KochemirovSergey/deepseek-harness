@@ -48,14 +48,13 @@ export async function runLifecycle({ ctx, mode, root, calls }) {
   const cookie = login.headers.getSetCookie().map(value => value.split(';')[0]).join('; ');
   assert(cookie);
   const request = { type: 'client-request', rpcId: crypto.randomUUID(), method: 'credentials/set', payload: { args: { ref: 'SHELL_FAKE', value: 'SHOULD_NOT_WRITE' } } };
-  const code = `const response = await fetch('http://127.0.0.1:13083/api/credentials/set', {method:'POST', headers:{'content-type':'application/json',origin:'http://127.0.0.1:13083',cookie:${JSON.stringify(cookie)}}, body:${JSON.stringify(JSON.stringify(request))}}); console.log(JSON.stringify({status:response.status,body:await response.json()}));`;
+  const code = `const response = await fetch('http://127.0.0.1:13083/api/credentials/set', {method:'POST', headers:{'content-type':'application/json',origin:'http://127.0.0.1:13083',cookie:${JSON.stringify(cookie)}}, body:${JSON.stringify(JSON.stringify(request))}}); console.log(JSON.stringify({status:response.status,body:await response.text()}));`;
   const quote = value => "'" + value.replaceAll("'", "'\\''") + "'";
   const outcome = await ctx.shell.run(ctx.shell.resolve({ command: `${quote(process.execPath)} --input-type=module -e ${quote(code)}` }));
   assert.equal(outcome.exitCode, 0);
   const response = JSON.parse(outcome.stdout.text);
-  assert.equal(response.status, 200);
-  assert.equal(response.body.result.ok, false);
-  assert.match(response.body.result.error.message, /Instance policy denies/);
+  assert.equal(response.status, 403);
+  assert.match(response.body, /Instance policy denies/);
   assert.equal(await ctx.credentials.resolve('SHELL_FAKE'), undefined);
   console.log(JSON.stringify({ passed: 'action owners deny commands, subagents and escalation; authenticated local API from confined shell is denied' }));
   await prompt('LIFECYCLE_HOLD');
