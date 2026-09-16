@@ -259,6 +259,8 @@ export type ConvViewProps = PropsRuntime<'conversation.view'>
 
 /** Business callbacks injected into the resident Conversation shell. */
 export interface ConversationInjected {
+  /** Instance controls are fixed by the administrator. */
+  restricted?: boolean
   /** Connect and open a blank Session in the selected Workspace. */
   selectWorkspace: (workspaceId: WorkspaceId) => Promise<void>
   /** Session-addressed composer block source, or the stable absent source. */
@@ -304,6 +306,8 @@ export interface ComposerBarOwnerProps {
 
 /** Package-private operations injected into the resident composer bar. */
 export interface ComposerBarInjected {
+  /** Instance controls are fixed by the administrator. */
+  restricted?: boolean
   keyboard: ComposerKeyboard | undefined
   addFiles: ((files: readonly File[]) => string | null) | undefined
   removeAttachment: ((id: DraftAttachmentId) => void) | undefined

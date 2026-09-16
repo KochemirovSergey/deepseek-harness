@@ -79,6 +79,8 @@ export interface WebBootBatch {
 
 /** The composed client entry graph the host injects as `window.__DSH_BOOT__`. */
 export interface WebBootGraph {
+  /** Server-owned presentation capabilities, absent for ordinary profiles. */
+  capabilities?: { restricted: true; model: string }
   /** Consistency anchor over the whole graph (content + bundle hashes). */
   rev: string
   /**
@@ -119,6 +121,8 @@ export interface BootPluginRow {
 
 /** The parsed boot manifest: one wire, two consumer views. */
 export interface BootManifest {
+  /** Server-owned presentation capabilities, absent for ordinary profiles. */
+  capabilities?: { restricted: true; model: string }
   /** Consistency anchor over the whole graph. */
   rev: string
   /** Rows as the module table consumes them. */
@@ -252,7 +256,14 @@ export function parseBootManifest(wire: unknown): BootManifest {
     }
     return { ...row, initialUrl }
   })
-  return { rev: graph.rev, modules, plugins }
+  const capabilities = graph.capabilities
+  if (capabilities !== undefined && (typeof capabilities !== 'object' || capabilities === null
+    || (capabilities as Record<string, unknown>).restricted !== true
+    || typeof (capabilities as Record<string, unknown>).model !== 'string')) {
+    throw new Error('client-modules: invalid server capabilities')
+  }
+  return { rev: graph.rev, modules, plugins,
+    ...(capabilities === undefined ? {} : { capabilities: capabilities as { restricted: true; model: string } }) }
 }
 
 /** One client bundle's factory registration submitted through `window.__ModuleLoader__.load`. */

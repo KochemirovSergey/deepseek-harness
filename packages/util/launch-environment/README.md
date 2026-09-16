@@ -39,6 +39,14 @@ const endpoint = launchEnvironmentOf(ctx).get('DEEPSEEK_BASE_URL')?.value
 
 `launchedThroughSsh(snapshot)` returns true only for a non-empty `SSH_CONNECTION` or `SSH_TTY` in the inherited process layer. Web browser handoff, the adaptive directory picker, and Open In share this predicate; project and user `.env` values never establish an SSH session.
 
+### Restricted user instances
+
+`DSH_INSTANCE_POLICY` is captured at module load, before `.env` processing. When absent, ordinary behavior is unchanged. When present, it names a root-owned canonical JSON file on Linux; writable ancestors, invalid grants, or an unprotected launch `DSH_HOME` stop startup. The object and its grant arrays are frozen. See the [restricted-instance decision](../../../.agents/notes/proposed/feature/2026-09-16-restricted-instance.md) for enforcement owners and acceptance limits.
+
+Required fields are `mode: "restricted"`, `workspace`, `temporaryDirectory`, `protectedRoots`, `readableRoots`, `provider`, `model`, and `agentPreset`. Optional `reasoningEffort` and positive integer `maxTokens` fix response parameters. Paths must exist and be canonical. Workspace and temporary directory must be separate; no grant may be `/` or overlap protected roots. Administrators must include all service state, credentials, backups and configuration in protected roots, and grant only the runtime and system files needed by child processes. Configuration contains no secrets.
+
+Restricted children receive only PATH, HOME, TMPDIR and locale variables. The project `.env` is ignored. `DSH_MAINTENANCE_AUTH=1`, read only from the inherited environment, gives Web maintenance a fresh in-memory browser signing secret; it does not bypass instance policy or permit simultaneous processes over one state.
+
 ### How layers rank
 
 | Layer | What it is |

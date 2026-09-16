@@ -1,3 +1,4 @@
+import { instancePolicy, InstancePolicyDenied } from '@deepseek-ai/dsh-launch-environment'
 /**
  * Per-session sandbox-mode override: the session log as the store. A runtime
  * switch (a UI policy control or test scenario) is recorded as one
@@ -51,5 +52,6 @@ export const SANDBOX_MODES: readonly SandboxMode[] = ['read-only', 'workspace-wr
  *   under (until the next switch).
  */
 export function setSandboxMode(session: Session, mode: SandboxMode): void {
+  if (instancePolicy !== undefined && mode !== 'workspace-write') throw new InstancePolicyDenied('sandbox mode selection')
   session.append('sandbox/mode', { mode })
 }

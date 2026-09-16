@@ -1,3 +1,4 @@
+import { instancePolicy } from '@deepseek-ai/dsh-launch-environment'
 /**
  * The sandbox POLICY home (`ctx.sandboxPolicy`): the single owner of the
  * deployment's sandbox fallbacks plus per-session resolution: the file-effect
@@ -126,8 +127,8 @@ export class SandboxPolicyService extends Service {
     // schemastery (static Config) already filled `mode`; the cast records that
     // runtime fact. `workspaceRoot` has NO schema default, so its fallback to
     // the process cwd is real branching, resolved absolute either way.
-    this.defaultMode = config.mode as SandboxMode
-    this.workspaceRoot = resolveWorkspaceRoot(config.workspaceRoot ?? process.cwd())
+    this.defaultMode = instancePolicy === undefined ? config.mode as SandboxMode : 'workspace-write'
+    this.workspaceRoot = resolveWorkspaceRoot(instancePolicy?.workspace ?? config.workspaceRoot ?? process.cwd())
 
     ctx.sessionProjections.register({
       key: 'sandboxMode',
@@ -162,6 +163,7 @@ export class SandboxPolicyService extends Service {
    */
   resolve(request: SandboxPolicyRequest = {}): SandboxExecutionPolicy {
     const { session } = request
+    if (instancePolicy !== undefined) return { mode: 'workspace-write', workspaceRoot: instancePolicy.workspace, ...(session === undefined ? {} : { sessionId: session.id }) }
     return {
       mode: request.mode ?? (session === undefined ? undefined : this.overrideOf(session)) ?? this.defaultMode,
       workspaceRoot: resolveWorkspaceRoot(session?.header.cwd ?? this.workspaceRoot),

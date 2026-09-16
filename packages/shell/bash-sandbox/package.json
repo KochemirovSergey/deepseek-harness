@@ -43,5 +43,8 @@
     "@deepseek-ai/cordis": "workspace:^",
     "@deepseek-ai/node-addon-system": "workspace:^",
     "@deepseek-ai/dsh-session-projection": "workspace:^"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-launch-environment": "workspace:^"
   }
 }

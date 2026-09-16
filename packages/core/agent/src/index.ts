@@ -1,3 +1,4 @@
+import { authorizeInstanceSelection, instancePolicy } from '@deepseek-ai/dsh-launch-environment'
 /**
  * Agent service: live registry, factory delegation, and process-local
  * initiator scope. Concrete creation and driving belong to the loop.
@@ -386,6 +387,10 @@ export class AgentRegistry extends Service {
    * @returns the handle after setup, rollback-covered publication, and loop start complete.
    */
   async create(options: CreateAgentOptions): Promise<AgentHandle> {
+    if (instancePolicy !== undefined) {
+      authorizeInstanceSelection(options.meta ?? {})
+      options = { ...options, meta: { ...options.meta, cwd: instancePolicy.workspace, agentPreset: instancePolicy.agentPreset } }
+    }
     const ownerCtx = this.ctx
     // Re-trace a Service-backed factory through the accessing context
     // explicitly. This preserves AgentLoop's dependency origin while binding

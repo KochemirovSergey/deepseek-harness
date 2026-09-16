@@ -54,7 +54,8 @@
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "workspace:^",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "@deepseek-ai/dsh-launch-environment": "workspace:^"
   },
   "devDependencies": {
     "@deepseek-ai/dsh-shell": "workspace:^",

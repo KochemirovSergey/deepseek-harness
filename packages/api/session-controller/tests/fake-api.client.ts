@@ -205,6 +205,7 @@ export class FakeApiClient {
         execute: () => Promise.resolve({ ok: true, value: undefined }),
       },
       session: {
+        capabilities: () => Promise.resolve(ok({ restricted: false, model: null })),
         canOpenWorkspacePath: () => Promise.resolve(ok(true)),
         list: payload => this.record('session.list', payload, this.onList(payload)),
         modelCatalog: () => Promise.resolve({

@@ -91,6 +91,22 @@ afterEach(() => {
 })
 
 describe('BrowserAuth', () => {
+  it('uses a temporary maintenance identity without changing durable browser authorization', async () => {
+    const store = new RecordCredentials()
+    const ordinary = await createAuth(store)
+    const ordinaryLogin = exchange(ordinary)
+    const saved = structuredClone(store.record)
+    const maintenance = await BrowserAuth.create({}, credentials(store), 1, true)
+    expect(store.record).toEqual(saved)
+    expect(maintenance.isAuthenticated(request('/', '127.0.0.1:3080', { cookie: ordinaryLogin.cookie }))).toBe(false)
+    const temporaryLogin = exchange(maintenance)
+    expect(ordinary.isAuthenticated(request('/', '127.0.0.1:3080', { cookie: temporaryLogin.cookie }))).toBe(false)
+    const another = await BrowserAuth.create({}, credentials(store), 1, true)
+    expect(another.isAuthenticated(request('/', '127.0.0.1:3080', { cookie: temporaryLogin.cookie }))).toBe(false)
+    const restarted = await createAuth(store)
+    expect(restarted.isAuthenticated(request('/', '127.0.0.1:3080', { cookie: ordinaryLogin.cookie }))).toBe(true)
+  })
+
   it('mints one process token and a persistent authority-bound cookie', async () => {
     const store = new RecordCredentials()
     const processOwner = {}

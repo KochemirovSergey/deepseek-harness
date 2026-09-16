@@ -46,7 +46,8 @@
     "@deepseek-ai/dsh-host-webserver": "workspace:^",
     "@deepseek-ai/dsh-invariants": "workspace:^",
     "@deepseek-ai/cordis": "workspace:^",
-    "@deepseek-ai/dsh-package-manifest": "workspace:^"
+    "@deepseek-ai/dsh-package-manifest": "workspace:^",
+    "@deepseek-ai/dsh-launch-environment": "workspace:^"
   },
   "files": [
     "lib/index.js",
@@ -55,6 +56,8 @@
     "lib/types/**/*.d.ts"
   ],
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:^"
-  }
+    "@deepseek-ai/cordis": "workspace:^",
+    "@deepseek-ai/dsh-launch-environment": "workspace:^"
+  },
+  "dependencies": {}
 }

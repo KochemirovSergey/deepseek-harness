@@ -61,7 +61,8 @@ export const inject = [
  * Mount the plugin configuration section and the cards this package ships.
  * @param ctx - the browser plugin context.
  */
-export function apply(ctx: ClientContext): void {
+export function apply(ctx: ClientContext, config?: { instanceCapabilities?: { restricted: boolean } }): void {
+  if (config?.instanceCapabilities?.restricted === true) return
   const t = ctx.locale.bind(NS)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-plugins: section dictionaries')
 

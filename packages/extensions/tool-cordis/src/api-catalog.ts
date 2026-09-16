@@ -541,6 +541,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'exact file bytes in order; integrity failures reject the iteration.',
       },
       {
+        signature: 'prepareFile(ref: FileAttachmentRef, signal?: AbortSignal): Promise<void>',
+        description: 'Prepare the execution-world copy of a durable file when the provider needs one. Ordinary providers do nothing; restricted local storage publishes through a confined child.',
+        parameters: [{ name: 'ref', description: 'Durable file identity.' }, { name: 'signal', description: 'Cancellation before publication.' }],
+        returns: 'Completion when the model-visible copy is ready; storage errors reject.',
+      },
+      {
         signature: 'fileHostPath(ref: FileAttachmentRef): string | undefined',
         description: 'Locate the verbatim stored file object in the harness host filesystem.',
         parameters: [{ name: 'ref', description: 'durable file reference.' }],
@@ -1445,6 +1451,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     summary: 'Host service backing the generated `ctx.remote.session` namespace.',
     description: 'Host service backing the generated `ctx.remote.session` namespace.',
     methods: [
+      {
+        signature: '@Remote capabilities(): { restricted: boolean; model: string | null }',
+        description: 'Read capabilities fixed by the administrator for this server process.',
+        parameters: [],
+        returns: 'The restriction flag and fixed model, or null in ordinary mode.',
+      },
       {
         signature: 'resolveAgent(sessionId: SessionId): Promise<ApiSessionAgentResult>',
         description: 'Resolve or resume one ordinary Session for another Host API domain.',
@@ -6264,7 +6276,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'WebBootGraph',
-    declaration: 'export interface WebBootGraph {\n    rev: string;\n    entries: WebBootEntry[];\n    batches: WebBootBatch[];\n}',
+    declaration: 'export interface WebBootGraph {\n    capabilities?: {\n        restricted: true;\n        model: string;\n    };\n    rev: string;\n    entries: WebBootEntry[];\n    batches: WebBootBatch[];\n}',
   },
   {
     name: 'WebFetchBody',

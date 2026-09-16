@@ -64,7 +64,8 @@ export const inject = ['slots', 'locale', 'connection', 'remote', 'remote.settin
  * section, each once its slot declaration is on the ledger.
  * @param ctx - client root context.
  */
-export function apply(ctx: ClientContext): void {
+export function apply(ctx: ClientContext, config?: { instanceCapabilities?: { restricted: boolean } }): void {
+  if (config?.instanceCapabilities?.restricted === true) return
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-general: dictionaries')
   const connection = ctx.get('connection') as ConnectionHandle
 

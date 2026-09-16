@@ -1,3 +1,4 @@
+import { denyRestricted } from '@deepseek-ai/dsh-launch-environment'
 /**
  * Dynamic Cordis Plugin service: immutable package definitions, one active run
  * per Plugin, human-approved Client activation, and Host/Client invocation.
@@ -149,6 +150,7 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
    * @returns Host-minted Plugin and Package identities with declared-half metadata.
    */
   define(request: DynamicCordisDefineRequest): DynamicCordisDefineReceipt {
+    denyRestricted('Cordis definition')
     const name = request.name.trim()
     const purpose = request.purpose.trim()
     if (name.length === 0) throw new Error('cordis_define needs a non-empty `name`')
@@ -252,6 +254,7 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
     mode: CordisDynamicRunMode,
     signal?: AbortSignal,
   ): Promise<DynamicCordisRunResponse> {
+    denyRestricted('Cordis execution')
     const plan = this.resolvePlan(agent, pluginId, packageId, mode)
     if (!plan.ok) return plan.response
     if (signal?.aborted === true) {
@@ -330,6 +333,7 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
     requestId: ApprovalRequestId | null,
     approveFutureVersions: boolean,
   ): Promise<DynamicCordisHostHalfResult> {
+    denyRestricted('Cordis execution')
     const plan = this.resolvePlan(agent, pluginId, packageId, mode, requestId === null)
     if (!plan.ok) return { ok: false, message: plan.response.message }
     let attempt: DynamicCordisRunAttempt
@@ -744,6 +748,7 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
     method: string,
     args: JsonValue,
   ): Promise<DynamicCordisInvokeResult> {
+    denyRestricted('Cordis invocation')
     const plugin = this.registry.get(pluginId)
     if (plugin === undefined || plugin.run === undefined) {
       return { ok: false, code: 'plugin-not-running', message: `dynamic plugin "${pluginId}" is not running` }

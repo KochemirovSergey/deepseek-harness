@@ -1,3 +1,4 @@
+import { instancePolicy, InstancePolicyDenied } from '@deepseek-ai/dsh-launch-environment'
 /**
  * Agent presets: each session composes its model-facing plugin set from one
  * preset `cordis.yml`, mounted ONCE per preset under a standing scope and
@@ -177,8 +178,8 @@ export class AgentPresets extends TypertRemoteService {
     this.harnessBase = baseUrl
     this.resolvedRoots = [
       ...config.includeShippedRoot ? [{ path: SHIPPED_PRESET_ROOT, trust: 'system' } satisfies PresetRoot] : [],
-      ...config.roots,
-      ...config.includeUserRoot ? [{ path: dshHomePath(USER_PRESET_DIR), trust: 'user' } satisfies PresetRoot] : [],
+      ...config.roots.filter(root => instancePolicy === undefined || root.trust === 'system'),
+      ...config.includeUserRoot && instancePolicy === undefined ? [{ path: dshHomePath(USER_PRESET_DIR), trust: 'user' } satisfies PresetRoot] : [],
     ]
     // Deliberately not `settings.installSection`: that method exists to re-judge
     // what a consumer DERIVED from the source — memoized resolutions,
@@ -238,7 +239,7 @@ export class AgentPresets extends TypertRemoteService {
    * every running session on the preset it was composed from.
    */
   get defaultId(): string {
-    return this.settings?.get().default ?? this.config.default
+    return instancePolicy?.agentPreset ?? this.settings?.get().default ?? this.config.default
   }
 
   /**
@@ -341,6 +342,7 @@ export class AgentPresets extends TypertRemoteService {
    * @throws when no configured root supplies that id.
    */
   async resolve(id?: string): Promise<AgentPreset> {
+    if (instancePolicy !== undefined && id !== undefined && id !== instancePolicy.agentPreset) throw new InstancePolicyDenied('agent preset selection')
     const wanted = id ?? this.defaultId
     const presets = await this.list()
     const found = presets.find(preset => preset.id === wanted)

@@ -83,7 +83,8 @@ function optionsOf(value: PermissionSelect, t: (key: string) => string): SelectO
  * permissions projection.
  * @param ctx - client root context.
  */
-export function apply(ctx: ClientContext): void {
+export function apply(ctx: ClientContext, config?: { instanceCapabilities?: { restricted: boolean } }): void {
+  if (config?.instanceCapabilities?.restricted === true) return
   const command = ctx.get('commandUi') as CommandUiContract
   const sessions = ctx.sessions
   // This optional bundle and ui-conversation can load independently, so each

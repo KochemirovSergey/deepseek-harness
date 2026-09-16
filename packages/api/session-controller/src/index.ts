@@ -1,3 +1,4 @@
+import { instancePolicy } from '@deepseek-ai/dsh-launch-environment'
 /** Session Remote owner: cold reads, explicit Agent commands, and live control state. */
 
 import { hostname } from 'node:os'
@@ -184,6 +185,15 @@ export class SessionController extends TypertRemoteService {
   }
 
   /**
+   * Read capabilities fixed by the administrator for this server process.
+   * @returns The restriction flag and fixed model, or null in ordinary mode.
+   */
+  @Remote
+  capabilities(): { restricted: boolean; model: string | null } {
+    return { restricted: instancePolicy !== undefined, model: instancePolicy?.model ?? null }
+  }
+
+  /**
    * Resolve or resume one ordinary Session for another Host API domain.
    * @param sessionId - Session identity whose Agent owns the operation.
    * @returns the live Agent or the stable Session-domain failure.
@@ -261,6 +271,14 @@ export class SessionController extends TypertRemoteService {
    */
   @Remote('modelCatalog')
   modelCatalog(): Promise<ModelCatalog> {
+    if (instancePolicy !== undefined) return Promise.resolve({
+      default: { provider: instancePolicy.provider, model: instancePolicy.model },
+      routableProviders: [instancePolicy.provider],
+      groups: [{
+        id: instancePolicy.provider, name: instancePolicy.provider,
+        models: [{ id: instancePolicy.model, name: instancePolicy.model }],
+      }], failures: [],
+    })
     return buildModelCatalog(this.ctx)
   }
 

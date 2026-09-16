@@ -228,6 +228,19 @@ export abstract class AttachmentStore extends Service {
   }
 
   /**
+   * Prepare the execution-world copy of a durable file when the provider needs one.
+   * Ordinary providers do nothing; restricted local storage publishes through a confined child.
+   * @param ref - Durable file identity.
+   * @param signal - Cancellation before publication.
+   * @returns Completion when the model-visible copy is ready; storage errors reject.
+   */
+  prepareFile(ref: FileAttachmentRef, signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted()
+    void ref
+    return Promise.resolve()
+  }
+
+  /**
    * Locate the verbatim stored file object in the harness host filesystem.
    * @param ref - durable file reference.
    * @returns an absolute host path, or undefined when this backend is not host-file-backed.

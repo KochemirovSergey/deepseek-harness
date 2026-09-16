@@ -135,3 +135,10 @@ declare module '@deepseek-ai/cordis' {
     launchEnvironment?: LaunchEnvironmentSnapshot
   }
 }
+
+export {
+  instancePolicy, parseInstancePolicy, InstancePolicyDenied, pathWithin,
+  denyRestricted, authorizeInstanceRemote, authorizeInstanceSelection, authorizeInstanceRequest,
+  instanceModelConfig, instanceChildEnvironment,
+} from './instance-policy.ts'
+export type { InstancePolicy } from './instance-policy.ts'

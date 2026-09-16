@@ -25,6 +25,8 @@ English | [中文](README.zh.md)
 <a id="use-this-package"></a>
 ## Use this package
 
+With an administrator-owned [restricted instance policy](../../util/launch-environment/README.md), all file operations run in a Landlock-confined child using the stock local backend and a fixed operation protocol. Paths must remain inside the fixed workspace; protected state is inaccessible even if a path changes between validation and use. The sandbox service is required and escalation cannot exceed `workspace-write`. The remaining per-session descriptions below apply to ordinary mode.
+
 Mount this backend instead of `fs-local` when the model's file writes and edits must be confined by the session's sandbox mode, while reads stay unconfined. The fence applies per call: the tool layer resolves the calling session's mode and workspace root into the same policy the bash runner receives, so the filesystem and shell families never confine to different roots.
 
 ### Minimal composition

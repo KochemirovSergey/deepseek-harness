@@ -1,3 +1,4 @@
+import { denyRestricted, instancePolicy } from '@deepseek-ai/dsh-launch-environment'
 /**
  * Service Definition for the subagent capability seam (`ctx.subagents`): a named-provider registry plus a
  * capability-validating asynchronous start API. Providers establish a
@@ -198,7 +199,7 @@ export class SubagentRuntime extends TypertRemoteService {
   constructor(ctx: Context) {
     super(ctx, 'subagents')
     this.emitLifecycle = createLifecycleEmitter(this.ctx, parent => scopeTarget(this, parent))
-    ctx.inject(['agents'], (childCtx: Context) => {
+    if (instancePolicy === undefined) ctx.inject(['agents'], (childCtx: Context) => {
       const manager = new SubagentContinuationManager(childCtx, {
         prepareContinuable: (name, request) => this.prepareContinuable(name, request),
         observeActivation: (provider, childId, parent) => this.observeActivation(provider, childId, parent),
@@ -607,6 +608,7 @@ export class SubagentRuntime extends TypertRemoteService {
 
   /** Look up a provider for dispatch or fail loud. */
   private expectProvider(name: string): SubagentProvider {
+    denyRestricted('subagent execution')
     const provider = this.providers.get(name)
     if (provider === undefined) {
       throw new SubagentError(`no subagent provider registered for "${name}"`, 'NO_PROVIDER')

@@ -1,3 +1,4 @@
+import { instancePolicy } from '@deepseek-ai/dsh-launch-environment'
 /** Host registry and HTTP adapter for generic Connection RPC channels. */
 
 import { Context, Service } from '@deepseek-ai/cordis'
@@ -125,6 +126,11 @@ export class HostConnectionService extends Service implements HostConnectionHand
       fetch: (request) => {
         const pathname = new URL(request.url).pathname
         const route = this.fetchRoutes.get(pathname)
+        if (instancePolicy !== undefined && route !== undefined
+          && !((pathname === '/api/session/uploadFileBinary' && request.method === 'POST')
+            || (pathname === '/api/file' && ['GET', 'HEAD'].includes(request.method)))) {
+          return Promise.resolve(new Response('Instance policy denies this route', { status: 403 }))
+        }
         if (route?.methods.has(request.method) === true) return route.fetch(request)
         const endpoint = endpointFromPath(channel, pathname)
         const interceptor = this.interceptors.get(channel)

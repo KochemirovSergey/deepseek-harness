@@ -1,3 +1,4 @@
+import { instancePolicy } from '@deepseek-ai/dsh-launch-environment'
 /**
  * Persistent shell PTY backend over the subprocess terminal primitive, shared
  * sandbox policy, bounded output, and provider-owned session cleanup.
@@ -99,6 +100,7 @@ export const PWSH_PROMPT_SETUP =
 
 function spawnArgv(ctx: Context, config: ResolvedConfig, policy: SandboxExecutionPolicy): string[] {
   const argv = [config.shellPath, ...config.shellArgs]
+  if (instancePolicy !== undefined) policy = { mode: 'workspace-write', workspaceRoot: instancePolicy.workspace }
   if (policy.mode === 'danger-full-access') return argv
   const sandbox = ctx.get('sandbox')
   if (sandbox === undefined) {

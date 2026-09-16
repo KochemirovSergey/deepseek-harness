@@ -1,3 +1,4 @@
+import { instancePolicy, authorizeInstanceSelection } from '@deepseek-ai/dsh-launch-environment'
 /** Agent activation, composition, and model-selection policy owned by API Session. */
 
 import { mkdir } from 'node:fs/promises'
@@ -235,6 +236,7 @@ export class ApiSessionAgentController {
     checkPersistedIdentity: boolean,
     presetId?: string,
   ): Promise<Agent> {
+    authorizeInstanceSelection({ cwd, ...(presetId === undefined ? {} : { agentPreset: presetId }) })
     let creation = this.creations.get(sessionId)
     if (creation === undefined) {
       creation = this.createOrAdopt(sessionId, cwd, checkPersistedIdentity, presetId)
@@ -286,6 +288,15 @@ export class ApiSessionAgentController {
     const defaultModel = this.ctx.agentDefaultModel
     const selection: InstalledSelection = {
       get current(): AgentModelSelection {
+        if (instancePolicy !== undefined) {
+          return {
+            provider: instancePolicy.provider,
+            model: instancePolicy.model,
+            ...(instancePolicy.reasoningEffort === undefined
+              ? {}
+              : { reasoningEffort: ReasoningEffortId(instancePolicy.reasoningEffort) }),
+          }
+        }
         if (picked !== undefined) return picked
         const loggedHeader = agent.session.requestHeader()
         if (loggedHeader === undefined) return defaultModel.currentSelection()
@@ -379,7 +390,7 @@ export class ApiSessionAgentController {
     if (presets === undefined) {
       return { setup: (_agentCtx, agent) => { this.installSelection(agent) } }
     }
-    const resolvedId = (await presets.resolve(presetId)).id
+    const resolvedId = (await presets.resolve(instancePolicy?.agentPreset ?? presetId)).id
     return {
       agentPreset: resolvedId,
       setup: async (agentCtx, agent) => {

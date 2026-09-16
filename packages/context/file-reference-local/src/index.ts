@@ -1,3 +1,4 @@
+import { instancePolicy } from '@deepseek-ai/dsh-launch-environment'
 /**
  * Local-filesystem implementation of `ctx.fileReferences`.
  *
@@ -12,6 +13,7 @@ import FileReferenceService, {
   type FileReferenceCandidate,
 } from '@deepseek-ai/dsh-file-reference'
 import type {} from '@deepseek-ai/dsh-tools'
+import type {} from '@deepseek-ai/dsh-fs'
 import {
   DEFAULT_FILE_SEARCH_EXCLUDED_DIRECTORIES,
   DEFAULT_FILE_SEARCH_MAX_ENTRIES,
@@ -42,7 +44,7 @@ export interface Config {
 
 /** Local-filesystem owner of the file-reference discovery service. */
 export class LocalFileReferenceService extends FileReferenceService {
-  static inject = ['agents']
+  static inject = ['agents', ...(instancePolicy === undefined ? [] : ['fs'])]
   static Config: z<Config> = z.object({
     maxResults: z.number().step(1).min(1).default(DEFAULT_FILE_SEARCH_MAX_RESULTS),
     maxEntries: z.number().step(1).min(1).default(DEFAULT_FILE_SEARCH_MAX_ENTRIES),
@@ -117,7 +119,10 @@ export class LocalFileReferenceService extends FileReferenceService {
   ): Promise<FileReferenceCandidate[]> {
     let search = this.searches.get(agent)
     if (search === undefined) {
-      search = new WorkspaceFileSearch(agent.session.header.cwd ?? process.cwd(), this.config)
+      search = new WorkspaceFileSearch(
+        instancePolicy?.workspace ?? agent.session.header.cwd ?? process.cwd(), this.config,
+        instancePolicy === undefined ? undefined : this.ctx.fs,
+      )
       this.searches.set(agent, search)
     }
     return search.list(query, signal)

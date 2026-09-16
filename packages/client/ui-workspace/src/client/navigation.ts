@@ -102,12 +102,14 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     private readonly directoryPicker: ClientRemote['directoryPicker'],
     private readonly workspaces: IWorkspaces,
     private readonly sessions: ISessions,
+    private readonly restricted = false,
   ) {
     super(ctx, 'uiWorkspace')
     ctx.effect(() => this.watchNavigation(), 'ui-workspace: Workspace navigation policy')
   }
 
   async connectWorkspace(workspaceId: WorkspaceId): Promise<SessionId> {
+    if (this.restricted) return this.sessions.create()
     const workspace = this.workspaces.list.getSnapshot().items
       .find(item => item.workspaceId === workspaceId)
     if (workspace === undefined) {
@@ -152,6 +154,12 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   }
 
   startSession(workspaceId?: WorkspaceId): void {
+    if (this.restricted) {
+      void this.sessions.create().then((id) => { this.openSession(id) }).catch(
+        (reason: unknown) => { console.warn('new session failed:', reason) },
+      )
+      return
+    }
     const workspace = this.workspaces.list.getSnapshot()
     const sessions = this.sessions.list.getSnapshot()
     const current = sessions.current
@@ -205,6 +213,13 @@ class UiWorkspaceService extends Service implements UiWorkspace {
       if (workspace.phase !== 'ready' || sessions.phase !== 'ready') return
       if (sessions.current !== undefined) {
         initial = 'done'
+        return
+      }
+      if (this.restricted) {
+        initial = 'done'
+        const recent = sessions.ids[0]
+        if (recent === undefined) this.startSession()
+        else this.openSession(recent)
         return
       }
       const target = recentWorkspace(workspace.items, sessions.byId)

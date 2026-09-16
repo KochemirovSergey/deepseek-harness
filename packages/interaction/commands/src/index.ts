@@ -1,3 +1,4 @@
+import { denyRestricted, instancePolicy } from '@deepseek-ai/dsh-launch-environment'
 /**
  * Plugin-owned human-command registry shared by interactive UI adapters.
  * @module @deepseek-ai/dsh-commands
@@ -308,6 +309,7 @@ export class CommandRuntime extends TypertRemoteService {
    */
   @Remote
   list(agent: Agent): readonly CommandDescriptor[] {
+    if (instancePolicy !== undefined) return []
     return Object.freeze([...this.view(agent).values()]
       .map(command => command.descriptor)
       // Names are unique in the effective view, so equality is impossible.
@@ -359,6 +361,7 @@ export class CommandRuntime extends TypertRemoteService {
     submittedAttachments: readonly CommandSubmitAttachment[],
     signal: AbortSignal,
   ): Promise<CommandExecution | undefined> {
+    denyRestricted('chat command')
     const parsed = parseCommand(line)
     if (parsed === undefined) return undefined
     const command = this.view(agent).get(parsed.name)

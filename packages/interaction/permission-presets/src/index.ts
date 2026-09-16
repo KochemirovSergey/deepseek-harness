@@ -1,3 +1,4 @@
+import { instancePolicy, InstancePolicyDenied } from '@deepseek-ai/dsh-launch-environment'
 /**
  * User-facing permission presets over the independent sandbox-mode and
  * approval-policy knobs. A switch records the selected preset, then writes
@@ -377,6 +378,7 @@ export class PermissionPresetService extends Service {
    * @param name - the preset to switch to; unknown names throw.
    */
   set(session: Session, name: string): void {
+    if (instancePolicy !== undefined && name !== 'workspace-write') throw new InstancePolicyDenied('permission selection')
     this.apply(session, name, (policy) =>{  setApprovalPolicy(session, policy) })
   }
 

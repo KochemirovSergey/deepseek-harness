@@ -57,6 +57,8 @@ interface WebBootBatch {
 ```ts type-equiv
 /** The composed client entry graph the host injects as `window.__DSH_BOOT__`. */
 interface WebBootGraph {
+  /** Server-owned presentation capabilities, absent for ordinary profiles. */
+  capabilities?: { restricted: true; model: string }
   /** Consistency anchor over the whole graph (content + bundle hashes). */
   rev: string
   /**

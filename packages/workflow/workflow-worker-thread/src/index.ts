@@ -1,3 +1,4 @@
+import { denyRestricted } from '@deepseek-ai/dsh-launch-environment'
 /**
  * Worker-thread workflow engine. Each run executes its model-written script in
  * an escapable vm context on a fresh worker and bridges `agent()` calls to host
@@ -141,6 +142,7 @@ class WorkerThreadWorkflowEngine extends WorkflowEngine {
    * @returns the live run (its `result` resolves when the script settles).
    */
   start(request: WorkflowStartRequest): WorkflowRun {
+    denyRestricted('workflow code execution')
     const meta = validateMeta(request.meta)
     assertBodyParses(request.script, meta.name)
     const subagentProvider = resolveSubagentProvider(this.ctx, this.config.provider, request.subagentProvider)

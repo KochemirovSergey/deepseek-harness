@@ -26,6 +26,7 @@ import type { ModelDirectoryState } from './directory.ts'
 import { ModelDirectoryResolver } from './service.ts'
 import type { ModelSelectInjected } from './slots.ts'
 import { ModelSelect } from './ModelSelect.tsx'
+import { FixedModel } from './FixedModel.tsx'
 import { en, zh, type ModelKey } from './locales.ts'
 
 export { ModelDirectory } from './directory.ts'
@@ -124,7 +125,14 @@ export const inject = ['commandUi', 'locale', 'sessions', 'slots', 'remote', 're
  * over the service.
  * @param ctx - client root context.
  */
-export function apply(ctx: ClientContext): void {
+export function apply(ctx: ClientContext, config?: { instanceCapabilities?: { restricted: boolean; model: string } }): void {
+  const capabilities = config?.instanceCapabilities
+  if (capabilities?.restricted === true) {
+    ctx.slots.inject('conversation.input.model', () => ctx.slots.register({
+      name: 'conversation.input.model', inject: () => ({ model: capabilities.model }),
+    }, FixedModel))
+    return
+  }
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-model-selection: dictionaries')
 
   // Non-slot faces (the command description, the popup option builder) read

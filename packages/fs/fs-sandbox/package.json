@@ -40,5 +40,8 @@
     "@deepseek-ai/dsh-sandbox-policy": "workspace:^",
     "@deepseek-ai/cordis": "workspace:^",
     "@deepseek-ai/dsh-session-projection": "workspace:^"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-launch-environment": "workspace:^"
   }
 }

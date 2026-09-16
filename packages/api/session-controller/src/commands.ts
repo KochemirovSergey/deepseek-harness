@@ -1,3 +1,4 @@
+import { authorizeInstanceSelection, authorizeInstanceRequest, denyRestricted, instancePolicy } from '@deepseek-ai/dsh-launch-environment'
 /** Session commands whose activation policy is explicit at each Remote method. */
 
 import { randomUUID } from 'node:crypto'
@@ -85,6 +86,8 @@ export class SessionCommandController {
    * @returns the Session identity and resolved preset when configured.
    */
   async create(request: SessionCreateRequest): Promise<SessionCreateValue> {
+    authorizeInstanceRequest('session/create', request)
+    authorizeInstanceSelection(request)
     if (request.workspaceId !== undefined && request.cwd !== undefined) {
       throw new RemoteError('gateway/bad-request', 'session.create accepts workspaceId or cwd, not both', {})
     }
@@ -98,7 +101,7 @@ export class SessionCommandController {
         })
       }
     }
-    const cwd = workspace?.path ?? request.cwd ?? this.defaultCwd
+    const cwd = workspace?.path ?? request.cwd ?? instancePolicy?.workspace ?? this.defaultCwd
     let adopted: Agent
     try {
       adopted = await this.agents.ensureSession(
@@ -131,6 +134,7 @@ export class SessionCommandController {
    * @returns the normalized selection installed for the Session.
    */
   async selectModel(request: SessionSelectModelRequest): Promise<SessionSelectModelValue> {
+    denyRestricted('model selection')
     const agent = await this.resolveAgent(request.sessionId)
     return this.agents.serializeImageAdmission(agent, async () => {
       try {
@@ -200,6 +204,7 @@ export class SessionCommandController {
    * @returns the new Session identity.
    */
   async fork(request: SessionForkRequest): Promise<SessionForkValue> {
+    authorizeInstanceRequest('session/fork', request)
     let atSeq: ReturnType<typeof SessionSeq> | undefined
     try {
       atSeq = request.atSeq === undefined ? undefined : SessionSeq(request.atSeq)
@@ -263,7 +268,9 @@ export class SessionCommandController {
         seed: source.events.slice(0, cut),
         inheritedEventCount: cut,
         meta: {
-          ...(source.header.cwd === undefined ? {} : { cwd: source.header.cwd }),
+          ...(instancePolicy === undefined
+            ? (source.header.cwd === undefined ? {} : { cwd: source.header.cwd })
+            : { cwd: instancePolicy.workspace }),
           parentSession: source.header.id,
           isSeeded: true,
           ...(composition.agentPreset === undefined
@@ -300,6 +307,7 @@ export class SessionCommandController {
    * @returns acknowledgement that the Agent accepted the prompt.
    */
   async prompt(request: SessionPromptRequest): Promise<SessionPromptValue> {
+    authorizeInstanceRequest('session/prompt', request)
     if (!hasPromptContent(request.content)) {
       throw new RemoteError(
         'gateway/bad-request',
@@ -422,6 +430,7 @@ export class SessionCommandController {
    * @returns acknowledgement that the queue mutation was applied.
    */
   updateQueue(request: SessionUpdateQueueRequest): SessionUpdateQueueValue {
+    authorizeInstanceRequest('session/updateQueue', request)
     if (request.action.kind === 'edit') {
       if (request.action.content.some(block => block.type !== 'text')) {
         throw new RemoteError(
@@ -548,6 +557,7 @@ export class SessionCommandController {
   }
 
   private async forkWorkspace(source: SessionHeader): Promise<Workspace | undefined> {
+    if (instancePolicy !== undefined) return undefined
     const workspaces = this.ctx.workspaceRegistry.list()
     const direct = workspaces.find(workspace => workspace.sessionIds.includes(source.id))
     if (direct !== undefined || source.origin !== 'subagent') return direct

@@ -25,6 +25,12 @@
     },
     {
       "path": "../file-reference"
+    },
+    {
+      "path": "../../util/launch-environment"
+    },
+    {
+      "path": "../../fs/fs"
     }
   ]
 }

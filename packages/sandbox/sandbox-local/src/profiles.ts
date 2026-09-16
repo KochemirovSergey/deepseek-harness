@@ -1,3 +1,4 @@
+import { instancePolicy } from '@deepseek-ai/dsh-launch-environment'
 /**
  * Internal platform-profile builders for the local sandbox provider.
  *
@@ -28,6 +29,7 @@ export function bwrapProfileArgs(policy: SandboxPolicy): string[] {
  * @returns launcher grant arguments before the trailing separator and command argv.
  */
 export function landlockProfileArgs(policy: SandboxPolicy): string[] {
+  if (instancePolicy !== undefined) return landlockGrantArgs({ readOnly: [...instancePolicy.readableRoots], readWrite: ['/dev/null', instancePolicy.workspace, instancePolicy.temporaryDirectory] })
   const readWrite = ['/dev/null']
   if (policy.mode === 'workspace-write') {
     readWrite.push('/tmp', policy.workspaceRoot)

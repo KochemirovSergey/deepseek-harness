@@ -790,6 +790,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     slotInject: '',
     declaredBy: 'an entry in \'conversation.composer.bar\' (client-ui-conversation), so it exists while that entry is mounted',
     occupants: [
+      'client-ui-model-selection FixedModel',
       'client-ui-model-selection ModelSelect',
     ],
     replaceRisk: 'shadows-shipped-ui',

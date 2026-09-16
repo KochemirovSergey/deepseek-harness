@@ -1,3 +1,4 @@
+import { instancePolicy } from '@deepseek-ai/dsh-launch-environment'
 /**
  * Workspace instruction loader for AGENTS.md-compatible files.
  *
@@ -123,7 +124,7 @@ export function apply(ctx: Context, config: Config): void {
     let desiredBaseline = false
     const authorityMessages = [...claimed]
     /* v8 ignore next -- normal agents carry an absolute session cwd. */
-    const cwd = agent.session.header.cwd ?? process.cwd()
+    const cwd = instancePolicy?.workspace ?? agent.session.header.cwd ?? process.cwd()
     const projectRoot = await findProjectRoot(cwd, resolved.projectRootMarkers, fileSystem, signal)
     const identity = workspaceBaselineIdentity(resolved, cwd, projectRoot)
     const visibleBaseline = visibleBaselineSource(agent, authorityMessages)

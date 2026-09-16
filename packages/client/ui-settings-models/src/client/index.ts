@@ -72,7 +72,8 @@ export const inject = [
  * pushed invalidation (settings, credentials, or provider topology).
  * @param ctx - client root context.
  */
-export function apply(ctx: ClientContext): void {
+export function apply(ctx: ClientContext, config?: { instanceCapabilities?: { restricted: boolean } }): void {
+  if (config?.instanceCapabilities?.restricted === true) return
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-models: copy dictionaries')
 
   const schema = createSettingsSchemaOperations(ctx.settingsSchema)

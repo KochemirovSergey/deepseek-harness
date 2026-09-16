@@ -1,3 +1,4 @@
+import type { FileSystem } from '@deepseek-ai/dsh-fs'
 /**
  * Host-workspace discovery for `@file` completion. The index contains paths
  * only: selected values remain ordinary prompt text and file contents stay
@@ -92,6 +93,7 @@ export class WorkspaceFileSearch {
   constructor(
     private readonly root: string,
     private readonly config: FileSearchConfig,
+    private readonly fileSystem?: FileSystem,
   ) {
     if (!Number.isSafeInteger(config.maxResults) || config.maxResults <= 0) {
       throw new Error('file search maxResults must be a positive safe integer')
@@ -213,8 +215,8 @@ export class WorkspaceFileSearch {
       // nothing. Letting that settle would publish an empty index over
       // entries that are still good and leave no invalidation to retry from.
       const entries = cursor === 0
-        ? await readWorkspaceRoot(directory.absolute, signal)
-        : await readDirectory(directory.absolute, signal)
+        ? await readWorkspaceRoot(directory.absolute, signal, this.fileSystem)
+        : await readDirectory(directory.absolute, signal, this.fileSystem)
       for (const entry of entries) {
         signal.throwIfAborted()
         const path = directory.relative === '' ? entry.name : `${directory.relative}/${entry.name}`
@@ -237,9 +239,9 @@ export class WorkspaceFileSearch {
     signal: AbortSignal,
   ): Promise<FileReferenceCandidate[]> {
     if (displayDirectory.split('/').some(segment => this.excludedDirectories.has(segment))) return []
-    const absolute = await resolveDisplayDirectory(this.root, displayDirectory, signal)
+    const absolute = await resolveDisplayDirectory(this.root, displayDirectory, signal, this.fileSystem)
     if (absolute === undefined) return []
-    const entries = await readDirectory(absolute, signal)
+    const entries = await readDirectory(absolute, signal, this.fileSystem)
     const candidates: FileReferenceCandidate[] = []
     for (const entry of entries) {
       if (entry.name.startsWith('.') && !fragment.startsWith('.')) continue
@@ -258,6 +260,7 @@ async function resolveDisplayDirectory(
   root: string,
   displayDirectory: string,
   signal: AbortSignal,
+  fileSystem?: FileSystem,
 ): Promise<string | undefined> {
   const resolvedRoot = resolve(root)
   const absolute = resolve(resolvedRoot, displayDirectory === '' ? '.' : displayDirectory)
@@ -270,6 +273,11 @@ async function resolveDisplayDirectory(
     signal.throwIfAborted()
     current = join(current, segment)
     try {
+      if (fileSystem !== undefined) {
+        const status = await fileSystem.lstat(current, undefined, signal)
+        if (status?.type !== 'directory') return undefined
+        continue
+      }
       const status = await lstat(current)
       signal.throwIfAborted()
       if (status.isSymbolicLink() || !status.isDirectory()) return undefined
@@ -281,17 +289,22 @@ async function resolveDisplayDirectory(
   return absolute
 }
 
-async function readWorkspaceRoot(absolute: string, signal: AbortSignal) {
+async function readWorkspaceRoot(absolute: string, signal: AbortSignal, fileSystem?: FileSystem) {
+  if (fileSystem !== undefined) {
+    const entries = await fileSystem.listDir(await fileSystem.resolve(absolute, { signal }), signal)
+    return entries.map(entry => ({ name: entry.name, isDirectory: () => entry.type === 'directory', isFile: () => entry.type === 'file' }))
+      .sort((left, right) => compareText(left.name, right.name))
+  }
   signal.throwIfAborted()
   const entries = await readdir(absolute, { withFileTypes: true })
   signal.throwIfAborted()
   return entries.sort((left, right) => compareText(left.name, right.name))
 }
 
-async function readDirectory(absolute: string, signal: AbortSignal) {
+async function readDirectory(absolute: string, signal: AbortSignal, fileSystem?: FileSystem) {
   signal.throwIfAborted()
   try {
-    const entries = await readdir(absolute, { withFileTypes: true })
+    const entries = await readWorkspaceRoot(absolute, signal, fileSystem)
     signal.throwIfAborted()
     return entries.sort((left, right) => compareText(left.name, right.name))
   } catch (_error: unknown) {

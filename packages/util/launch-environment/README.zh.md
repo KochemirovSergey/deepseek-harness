@@ -39,6 +39,14 @@ const endpoint = launchEnvironmentOf(ctx).get('DEEPSEEK_BASE_URL')?.value
 
 `launchedThroughSsh(snapshot)` 仅在继承的进程层中存在非空 `SSH_CONNECTION` 或 `SSH_TTY` 时返回 true。Web 浏览器唤起、自适应目录选择器与 Open In 共用此判断；项目与用户 `.env` 中的值不作为 SSH 会话的依据。
 
+### 受限用户实例
+
+`DSH_INSTANCE_POLICY` 在模块加载时捕获，早于 `.env` 处理。未设置时，普通行为不变。 设置时，它指向 Linux 上 root 拥有的规范 JSON 文件；祖先路径可写、授权无效或启动时 `DSH_HOME` 未受保护都会阻止启动。对象及其授权数组被冻结。落实限制的所有者和验收 边界见[受限实例决策](../../../.agents/notes/proposed/feature/2026-09-16-restricted-instance.zh.md)。
+
+必需字段为 `mode: "restricted"`、`workspace`、`temporaryDirectory`、`protectedRoots`、 `readableRoots`、`provider`、`model` 和 `agentPreset`。可选的 `reasoningEffort` 和正整数 `maxTokens` 固定响应参数。路径必须存在且为规范路径。workspace 和临时目录必须分离； 任何授权不得为 `/`，也不得与受保护根目录重叠。管理员必须将所有服务 state、凭据、 备份和配置纳入受保护根目录，只授权子进程需要的运行时和系统文件。配置不包含秘密。
+
+受限子进程仅接收 PATH、HOME、TMPDIR 和区域设置变量。项目 `.env` 被忽略。 仅从继承环境读取的 `DSH_MAINTENANCE_AUTH=1` 为 Web 维护提供新的内存浏览器签名密钥； 它不绕过实例策略，也不允许多个进程同时使用同一 state。
+
 ### 各层的优先级
 
 | 层 | 它是什么 |

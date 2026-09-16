@@ -698,6 +698,12 @@ Host service backing the generated `ctx.remote.session` namespace.
 
 ```ts cordis-catalog
 /**
+ * Read capabilities fixed by the administrator for this server process.
+ * @returns The restriction flag and fixed model, or null in ordinary mode.
+ */
+@Remote capabilities(): { restricted: boolean; model: string | null }
+
+/**
  * Resolve or resume one ordinary Session for another Host API domain.
  * @param sessionId - Session identity whose Agent owns the operation.
  * @returns the live Agent or the stable Session-domain failure.

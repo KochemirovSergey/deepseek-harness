@@ -1,5 +1,7 @@
 /** Local durable attachment backend rooted below `DSH_HOME`. @module @deepseek-ai/dsh-attachment-local */
 
+import { instancePolicy } from '@deepseek-ai/dsh-launch-environment'
+import { publishWorkspaceAttachment, workspaceAttachmentPath } from './workspace-copy.ts'
 import { join, resolve } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -227,11 +229,15 @@ export class LocalAttachmentStore extends AttachmentStore {
   }
 
   override async saveFile(input: SaveFileAttachment): Promise<FileAttachmentRef> {
-    return saveFileVerbatim(this.root, input)
+    const ref = await saveFileVerbatim(this.root, input)
+    await this.prepareFile(ref)
+    return ref
   }
 
   override async saveFileStream(input: SaveFileStreamAttachment): Promise<FileAttachmentRef> {
-    return saveFileStreamVerbatim(this.root, input)
+    const ref = await saveFileStreamVerbatim(this.root, input)
+    await this.prepareFile(ref, input.signal)
+    return ref
   }
 
   override readFileStream(ref: FileAttachmentRef, signal?: AbortSignal): AsyncIterable<Uint8Array> {
@@ -239,7 +245,14 @@ export class LocalAttachmentStore extends AttachmentStore {
   }
 
   override fileHostPath(ref: FileAttachmentRef): string {
-    return storedFilePath(this.root, ref)
+    const stored = storedFilePath(this.root, ref)
+    return instancePolicy === undefined ? stored : workspaceAttachmentPath(ref)
+  }
+
+  override async prepareFile(ref: FileAttachmentRef, signal?: AbortSignal): Promise<void> {
+    if (instancePolicy === undefined) return
+    storedFilePath(this.root, ref)
+    await publishWorkspaceAttachment(this.ctx, ref, this.readFileStream(ref, signal), signal)
   }
 
   override async readImageRequest(

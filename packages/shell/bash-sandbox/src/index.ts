@@ -1,3 +1,4 @@
+import { instancePolicy, pathWithin } from '@deepseek-ai/dsh-launch-environment'
 /**
  * Sandbox-consuming bash executor. It wraps the exact local bash argv through
  * `ctx.sandbox`, inherits local process mechanics, and reports the selected
@@ -87,7 +88,8 @@ export class SandboxBashExecutor extends LocalBashExecutor {
   }
 
   override async run(spec: ShellExecSpec): Promise<ShellRunResult> {
-    const policy = spec.sandboxPolicy as SandboxExecutionPolicy
+    if (instancePolicy !== undefined && !pathWithin(instancePolicy.workspace, spec.workdir)) throw new Error('command working directory must be within instance workspace')
+    const policy = instancePolicy === undefined ? spec.sandboxPolicy as SandboxExecutionPolicy : this.ctx.sandboxPolicy.resolve()
     const { mode } = policy
     if (mode === 'danger-full-access') {
       const result = await super.run(spec)
@@ -115,7 +117,8 @@ export class SandboxBashExecutor extends LocalBashExecutor {
   }
 
   override start(spec: ShellExecSpec): ShellProcess {
-    const policy = spec.sandboxPolicy as SandboxExecutionPolicy
+    if (instancePolicy !== undefined && !pathWithin(instancePolicy.workspace, spec.workdir)) throw new Error('command working directory must be within instance workspace')
+    const policy = instancePolicy === undefined ? spec.sandboxPolicy as SandboxExecutionPolicy : this.ctx.sandboxPolicy.resolve()
     const { mode } = policy
     if (mode === 'danger-full-access') return super.start(spec)
     // Once startArgv returns, install facts synchronously; promise settlement

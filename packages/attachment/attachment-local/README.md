@@ -25,6 +25,8 @@ Store images and generic file attachments durably below `DSH_HOME` on the machin
 <a id="use-this-package"></a>
 ## Use this package
 
+Under an administrator-owned [restricted instance policy](../../util/launch-environment/README.md), generic file originals remain in protected state. `prepareFile` verifies their identifiers, digest and size, then streams bytes to a confined child that publishes a workspace copy under `.dsh-attachments`. Model requests expose that copy, never an arbitrary state path. Edits affect only the copy; later requests may restore it, so save retained edits to another workspace path. This mode requires the sandbox service.
+
 In the default composition, images and generic files attached to prompts or commands are stored on this machine automatically. If you compose your own setup, mounting this plugin provides durable attachments.
 
 ### Minimal configuration

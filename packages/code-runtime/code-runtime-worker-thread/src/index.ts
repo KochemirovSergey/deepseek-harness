@@ -1,3 +1,4 @@
+import { denyRestricted } from '@deepseek-ai/dsh-launch-environment'
 /**
  * Worker-thread code runtime: a fresh worker runs each host-type-stripped TypeScript program
  * and bridges bindings over its message port. This is containment, not a security boundary:
@@ -291,6 +292,7 @@ export class WorkerThreadCodeRuntime extends CodeRuntime {
    * @returns the run's outcome per the seam contract.
    */
   async run(request: CodeRunRequest): Promise<CodeRunResult> {
+    denyRestricted('in-process code execution')
     if (this.disposed) throw new Error('dsh-code-runtime-worker-thread: run() after disposal')
     const bindings = this.validateBindings(request)
     if (request.signal?.aborted) {

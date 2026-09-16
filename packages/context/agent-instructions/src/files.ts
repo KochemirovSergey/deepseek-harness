@@ -1,3 +1,4 @@
+import { instancePolicy } from '@deepseek-ai/dsh-launch-environment'
 /**
  * Instruction-file discovery and bounded, abort-aware provider reads.
  *
@@ -184,6 +185,7 @@ export async function findProjectRoot(
   fileSystem?: FileSystem,
   signal?: AbortSignal,
 ): Promise<string> {
+  if (instancePolicy !== undefined) return instancePolicy.workspace
   let current = resolve(cwd)
   for (;;) {
     for (const marker of markers) {

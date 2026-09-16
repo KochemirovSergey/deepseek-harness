@@ -70,11 +70,12 @@ export const inject = [
  * framework's global hooks.
  * @param ctx - client root context.
  */
-export function apply(ctx: Context): void {
+export function apply(ctx: Context, config?: { instanceCapabilities?: { restricted: boolean } }): void {
+  const restricted = config?.instanceCapabilities?.restricted === true
   const sessions = ctx.get('sessions') as ISessions
   const workspaces = ctx.get('workspaces') as IWorkspaces
   const uiWorkspace = new UiWorkspaceService(
-    ctx, ctx.remote.directoryPicker, workspaces, sessions)
+    ctx, ctx.remote.directoryPicker, workspaces, sessions, restricted)
   ctx.slots.provideRoot({ hooks: { workspaces: workspaces.list } })
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-workspace: dictionaries')
 
@@ -100,6 +101,7 @@ export function apply(ctx: Context): void {
     uiWorkspace.openSession(sessionId)
   }
   const browserInjected = (): WorkspaceBrowserInjected => ({
+    restricted,
     // Explicit group actions keep their target; unscoped New Session inherits
     // the current Session Workspace before the recent-Workspace fallback.
     startSession: (workspaceId) => { uiWorkspace.startSession(workspaceId) },
@@ -148,6 +150,7 @@ export function apply(ctx: Context): void {
     },
     WorkspaceBrowser,
   ))
+  if (restricted) return
   ctx.slots.inject('conversation.hero.workspace', () => ctx.slots.register(
     {
       name: 'conversation.hero.workspace',

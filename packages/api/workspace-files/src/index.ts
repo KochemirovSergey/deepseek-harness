@@ -1,3 +1,4 @@
+import { instancePolicy } from '@deepseek-ai/dsh-launch-environment'
 /**
  * Workspace file service: read-only file previews, workspace directory
  * listings, and the filesystem-observation change feed, exposed as
@@ -213,7 +214,7 @@ export class WorkspaceFiles extends TypertRemoteService {
           if (header === undefined) return undefined
           return {
             sessionId,
-            workspaceRoot: header.cwd ?? scope.sandboxPolicy.workspaceRoot,
+            workspaceRoot: instancePolicy?.workspace ?? header.cwd ?? scope.sandboxPolicy.workspaceRoot,
           }
         },
       })

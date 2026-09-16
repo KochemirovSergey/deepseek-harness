@@ -50,12 +50,15 @@ export const inject = [
 
 /** Conversation runtime configuration. */
 export interface Config {
+  /** Immutable capabilities from the server boot manifest. */
+  instanceCapabilities?: { restricted: boolean }
   /** Maximum generic-file uploads allowed to run concurrently in browser Workers. */
   maxConcurrentFileUploads?: number
 }
 
 /** Validated Conversation runtime configuration. */
 export const Config: z<Config> = z.object({
+  instanceCapabilities: z.object({ restricted: z.boolean() }),
   maxConcurrentFileUploads: z.natural().min(1).default(2),
 })
 
@@ -230,6 +233,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       'conversation.hero.agentPreset': { kind: 'single', scope: 'root' },
     },
     inject: (sessionId: SessionId | undefined): ConversationInjected => ({
+      restricted: config.instanceCapabilities?.restricted === true,
       hooks: {
         composerBlock: sessionId === undefined ? ABSENT_BLOCK : composerBlocks.storeFor(sessionId),
       },
@@ -308,6 +312,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
     inject: (sessionId: SessionId | undefined): ComposerBarInjected => {
       if (sessionId === undefined) {
         return {
+          restricted: config.instanceCapabilities?.restricted === true,
           keyboard: undefined,
           addFiles: undefined,
           removeAttachment: undefined,
@@ -329,6 +334,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       const shell = inputHub.shell(sessionId)
       const inputTriggers = inputHub.inputTriggers(sessionId)
       return {
+        restricted: config.instanceCapabilities?.restricted === true,
         keyboard: shell,
         addFiles: (files) => {
           if (sessions.binding(sessionId) === undefined) return t('file.sessionUnavailable')

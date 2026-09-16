@@ -1,3 +1,4 @@
+import { denyRestricted } from '@deepseek-ai/dsh-launch-environment'
 /**
  * Host Remote owner for the configuration surfaces over the settings-domain
  * seams. Two namespaces: `settings`, the redacted reads and writes of
@@ -146,6 +147,7 @@ export class SettingsController extends TypertRemoteService {
     patch: Record<string, JsonValue>,
     expectedRevision: number | undefined,
   ): Promise<SettingsNamespaceView> {
+    denyRestricted('settings write')
     return this.write(ns, 'update', patch, expectedRevision)
   }
 
@@ -163,6 +165,7 @@ export class SettingsController extends TypertRemoteService {
     section: Record<string, JsonValue>,
     expectedRevision: number | undefined,
   ): Promise<SettingsNamespaceView> {
+    denyRestricted('settings write')
     return this.write(ns, 'replace', section, expectedRevision)
   }
 
@@ -182,6 +185,7 @@ export class SettingsController extends TypertRemoteService {
     ops: SettingsPathOpView[],
     expectedRevision: number | undefined,
   ): Promise<SettingsNamespaceView> {
+    denyRestricted('settings write')
     return this.write(ns, 'mutate', ops, expectedRevision)
   }
 

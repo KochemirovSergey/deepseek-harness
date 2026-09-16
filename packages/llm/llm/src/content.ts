@@ -149,13 +149,17 @@ export function contentHasFile(content: readonly ContentBlock[]): boolean {
  * the only representation a provider ever receives for a file.
  * @param ref - durable verbatim file reference.
  * @param readonlyPath - execution-world path of the stored copy, when resolvable.
+ * @param writableCopy - Whether the path exposes a replaceable workspace copy.
  * @returns deterministic handle text naming the file, its size, and its address.
  */
-export function fileHandleText(ref: FileAttachmentRef, readonlyPath: string | undefined): string {
+export function fileHandleText(ref: FileAttachmentRef, readonlyPath: string | undefined, writableCopy = false): string {
   const digest = String(ref.attachmentId).slice('sha256:'.length, 'sha256:'.length + 8)
   const identity = `File ${quoted(ref.name)} (${ref.bytes} bytes, sha256:${digest})`
   if (readonlyPath === undefined) {
     return `[${identity} was uploaded, but the current execution environment cannot access a readable path. Report that limitation if its contents are needed; do not claim to have read it.]`
+  }
+  if (writableCopy) {
+    return `[${identity}: working copy saved at ${quoted(readonlyPath)}. Read it with your file tools. Changes affect only this workspace copy; a later request may restore it from the stored original. Save edits to another workspace path to retain them.]`
   }
   return `[${identity}: verbatim read-only copy saved at ${quoted(readonlyPath)}. Read that path with your file tools when its contents are needed; copy it to a writable location before modifying it. When delegating file work, include this saved path in the delegation prompt; only subagents sharing this execution environment can read it.]`
 }
@@ -164,16 +168,17 @@ export function fileHandleText(ref: FileAttachmentRef, readonlyPath: string | un
 function replaceFilesWithHandles(
   blocks: readonly ContentBlock[],
   resolvePath: (ref: FileAttachmentRef) => string | undefined,
+  writableCopy: boolean,
 ): ContentBlock[] {
   let next: ContentBlock[] | undefined
   for (const [index, block] of blocks.entries()) {
     if (block.type === 'file') {
       next ??= blocks.slice(0, index)
-      next.push({ type: 'text', text: fileHandleText(block.attachment, resolvePath(block.attachment)) })
+      next.push({ type: 'text', text: fileHandleText(block.attachment, resolvePath(block.attachment), writableCopy) })
       continue
     }
     if (block.type === 'tool-result') {
-      const content = replaceFilesWithHandles(block.content, resolvePath)
+      const content = replaceFilesWithHandles(block.content, resolvePath, writableCopy)
       if (content !== block.content) {
         next ??= blocks.slice(0, index)
         next.push({ ...block, content })
@@ -191,15 +196,17 @@ function replaceFilesWithHandles(
  * projection is unconditional in request assembly.
  * @param messages - complete request history.
  * @param resolvePath - resolve one reference's current execution-world read path.
+ * @param writableCopy - Whether resolved paths are replaceable workspace copies.
  * @returns the original list without files, otherwise shallow message copies with handle text.
  */
 export function projectFilesToText(
   messages: readonly Message[],
   resolvePath: (ref: FileAttachmentRef) => string | undefined,
+  writableCopy = false,
 ): readonly Message[] {
   if (!messages.some(message => contentHasFile(message.content))) return messages
   return messages.map((message) => {
-    const content = replaceFilesWithHandles(message.content, resolvePath)
+    const content = replaceFilesWithHandles(message.content, resolvePath, writableCopy)
     return content === message.content ? message : { ...message, content }
   })
 }

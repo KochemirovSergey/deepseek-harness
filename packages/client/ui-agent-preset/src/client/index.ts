@@ -62,7 +62,8 @@ export const inject = [
  * Mount the roster surfaces: hero chip, session-header label, settings section.
  * @param ctx - the browser plugin context.
  */
-export function apply(ctx: ClientContext): void {
+export function apply(ctx: ClientContext, config?: { instanceCapabilities?: { restricted: boolean } }): void {
+  if (config?.instanceCapabilities?.restricted === true) return
   const controller = new AgentPresetSettingsController(ctx)
   // One roster, three surfaces. The chip is registered in a later scope, so it
   // subscribes here rather than being reached from this one.

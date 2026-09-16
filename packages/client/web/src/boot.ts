@@ -126,7 +126,16 @@ export class AppWebEntry {
     await prefetching
     await Promise.all(rows.map(async (name) => {
       this.page.setState(name, 'loading')
-      const id = await loader.create({ name })
+      const managed = [
+        '@deepseek-ai/dsh-client-ui-conversation',
+        '@deepseek-ai/dsh-client-ui-settings-general', '@deepseek-ai/dsh-client-ui-settings-models',
+        '@deepseek-ai/dsh-client-ui-settings-plugins', '@deepseek-ai/dsh-client-ui-settings-plugin-inventory',
+        '@deepseek-ai/dsh-client-ui-workspace', '@deepseek-ai/dsh-client-ui-permission-presets',
+        '@deepseek-ai/dsh-client-ui-agent-preset', '@deepseek-ai/dsh-client-ui-model-selection',
+      ].includes(name)
+      const config = managed && this.manifest.capabilities !== undefined
+        ? { instanceCapabilities: this.manifest.capabilities } : undefined
+      const id = await loader.create({ name, ...(config === undefined ? {} : { config }) })
       if (loader.resolve(id).fiber === undefined) this.page.setState(name, 'failed')
     }))
 

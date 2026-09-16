@@ -1,3 +1,4 @@
+import { instanceChildEnvironment } from '@deepseek-ai/dsh-launch-environment'
 /**
  * Process plumbing for the local subprocess service: ordinary process launch
  * with per-stream stdio dispositions, tail-keep collection with spill
@@ -44,6 +45,8 @@ type SpawnProcess = (
  * @returns the environment to hand to `spawn` for the child process.
  */
 export function childEnv(extra?: Readonly<NodeJS.ProcessEnv>): NodeJS.ProcessEnv {
+  const restricted = instanceChildEnvironment()
+  if (restricted !== undefined) return restricted
   const env = scrubbedParentEnv()
   if (process.platform !== 'win32') return { ...env, ...extra }
   let entries: [string, string | undefined][] = Object.entries(env)

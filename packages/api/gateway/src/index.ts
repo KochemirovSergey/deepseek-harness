@@ -1,3 +1,4 @@
+import { authorizeInstanceRemote, instancePolicy, InstancePolicyDenied } from '@deepseek-ai/dsh-launch-environment'
 /**
  * Live Typert Remote dispatch over Cordis Services and registered providers.
  * Unary transport and response envelopes belong to Connection; live Remote
@@ -527,6 +528,7 @@ export class TypertGatewayService extends Service implements TypertGateway {
     // Settlement and Client replacement may race the result request. Results
     // from a completed event or a superseded delivery are idempotent no-ops.
     if (pending === undefined || !pending.deliveries.has(client)) return
+    if (instancePolicy !== undefined && !['approval/request', 'user-questions/request'].includes(pending.source.event)) throw new InstancePolicyDenied('client event response')
     this.removeRemoteEventDelivery(pending, client)
     if (result.outcome.kind === 'result') {
       this.settleRemoteEvent(pending, {
@@ -596,6 +598,7 @@ export class TypertGatewayService extends Service implements TypertGateway {
 
   private async prepareInvocation(request: InvokeRemoteRequest): Promise<PreparedInvocation> {
     const endpoint = endpointOf(request.namespace, request.method)
+    authorizeInstanceRemote(endpoint, request.args)
     const descriptor = this.resolveDescriptor(request.namespace, request.method, endpoint)
     assertExactArguments(request.args, descriptor, endpoint)
     const receiverContext = await this.resolveReceiverContext(descriptor, request.args, endpoint)

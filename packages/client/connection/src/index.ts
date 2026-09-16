@@ -1,3 +1,4 @@
+import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 /** Host HTTP bridge for browser-client RPC. */
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -114,7 +115,10 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
   const connection = new HostConnectionService(
     ctx,
     trustedHosts,
-    await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays),
+    await BrowserAuth.create(
+      ctx.root, ctx.credentials, cookieMaxAgeDays,
+      launchEnvironmentOf(ctx).getFrom('DSH_MAINTENANCE_AUTH', ['process'])?.value === '1',
+    ),
   )
   ctx.inject(['webServer'], (webCtx) => {
     assertImageBodyCapacity(webCtx, maxRequestBodyBytes)

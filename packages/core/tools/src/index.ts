@@ -1,3 +1,4 @@
+import { instancePolicy } from '@deepseek-ai/dsh-launch-environment'
 /**
  * Tool registry, model presentation modes, and pre/guard/around/post/result
  * execution pipeline.
@@ -890,6 +891,7 @@ export class ToolRuntime extends Service {
    * @returns the resolved presentation mode.
    */
   private modeFor(scope?: ScopeKey): ToolPresentationMode {
+    if (instancePolicy !== undefined) return 'native'
     // Nearest scope wins along the chain: a preset's standing declaration
     // covers every agent parented under it, and an agent's own (were one ever
     // declared) would override its preset's. The mode decides what the model

@@ -1,3 +1,4 @@
+import { instanceModelConfig, instancePolicy } from '@deepseek-ai/dsh-launch-environment'
 /**
  * LLM service: adapter registry with a waterfall-interceptable streaming call
  * API. Exports the `LlmRuntime` default, the abstract `LlmAdapter` for
@@ -674,7 +675,7 @@ export class LlmRuntime extends TypertRemoteService {
    * @returns the same deterministic handle text used at adapter dispatch.
    */
   fileRequestText(ref: FileAttachmentRef): string {
-    return fileHandleText(ref, this.fileReadPath(ref))
+    return fileHandleText(ref, this.fileReadPath(ref), instancePolicy !== undefined)
   }
 
   /** Detach typed adapter-owned modality metadata. */
@@ -856,6 +857,7 @@ export class LlmRuntime extends TypertRemoteService {
    * @returns a detached config only when a default must be materialized.
    */
   async resolveCallConfig(config: LlmCallConfig, signal?: AbortSignal): Promise<LlmCallConfig> {
+    config = instanceModelConfig(config)
     return (await this.resolveCallFor(this.registration(config.provider), config, signal)).config
   }
 
@@ -914,6 +916,7 @@ export class LlmRuntime extends TypertRemoteService {
    * @returns a prepared config and its registration-bound stream entry point.
    */
   async prepareCall(config: LlmCallConfig, signal?: AbortSignal): Promise<PreparedLlmCall> {
+    config = instanceModelConfig(config)
     const registration = this.registration(config.provider)
     const adapterCall = await registration.adapter.prepareCall(config.provider, config.model, signal)
     const modelInfo = this.normalizeModelInfo(registration, config.model, adapterCall.model)
@@ -1014,6 +1017,15 @@ export class LlmRuntime extends TypertRemoteService {
   ): AsyncGenerator<StreamChunk> {
     let iterator: AsyncIterator<StreamChunk>
     try {
+      if (prepared === undefined && instancePolicy !== undefined) {
+        const configured = instanceModelConfig<LlmCallConfig>(options)
+        options = { ...options }
+        delete options.temperature
+        delete options.maxTokens
+        delete options.stop
+        delete options.reasoningEffort
+        Object.assign(options, configured)
+      }
       const registration = prepared?.registration ?? this.registration(options.provider)
       const adapter = registration.adapter
       let modelInfo: LlmResolvedModelInfo
@@ -1043,7 +1055,15 @@ export class LlmRuntime extends TypertRemoteService {
       // Files are never dispatched natively: every route receives handle text.
       let projectedMessages: readonly Message[] = resolvedOptions.messages
       if (projectedMessages.some(message => contentHasFile(message.content))) {
-        projectedMessages = projectFilesToText(projectedMessages, ref => this.fileReadPath(ref))
+        if (instancePolicy !== undefined) {
+          const files = new Map<string, FileAttachmentRef>()
+          projectFilesToText(projectedMessages, (ref) => {
+            files.set(`${String(ref.attachmentId)}/${ref.name}`, ref)
+            return undefined
+          })
+          for (const ref of files.values()) await this.ctx.get('attachments')?.prepareFile(ref, options.signal)
+        }
+        projectedMessages = projectFilesToText(projectedMessages, ref => this.fileReadPath(ref), instancePolicy !== undefined)
       }
       if (modelInfo.inputModalities !== undefined
         && !modelInfo.inputModalities.includes('image')

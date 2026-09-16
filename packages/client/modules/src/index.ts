@@ -1,3 +1,4 @@
+import { instancePolicy } from '@deepseek-ai/dsh-launch-environment'
 /**
  * Node half of the client module system (`dsh.client` dual-face package): scans
  * the host Loader's entries for packages declaring `dsh.client`, composes the
@@ -725,7 +726,9 @@ export class ClientModuleRegistry extends Service {
     this.batchResponses = batchResponses
     this.responses = responses
     const batches = artifacts.map(artifact => artifact.descriptor)
-    return { rev: shortHash(JSON.stringify({ entries, batches })), entries, batches }
+    const capabilities = instancePolicy === undefined ? undefined : { restricted: true as const, model: instancePolicy.model }
+    return { rev: shortHash(JSON.stringify({ entries, batches, capabilities })), entries, batches,
+      ...(capabilities === undefined ? {} : { capabilities }) }
   }
 
   private notifyGraphChanged(): void {

@@ -1,3 +1,4 @@
+import { instancePolicy } from '@deepseek-ai/dsh-launch-environment'
 /**
  * Local sandbox backend. It selects the platform runner chain (Linux bwrap then
  * Landlock; macOS Seatbelt; Windows the ACL restricted-token runner), functionally probes
@@ -314,6 +315,13 @@ export class LocalSandboxProvider extends SandboxProvider {
    *   `SANDBOX_UNAVAILABLE` error when the platform has no usable runner.
    */
   confine(argv: readonly string[], policy: SandboxPolicy): ConfinedArgv {
+    if (instancePolicy !== undefined) {
+      if (process.platform !== 'linux' || this.probeRunner('landlock') !== 'full') throw new SandboxUnavailableError('workspace-write', 'restricted instance requires full Landlock enforcement')
+      return {
+        argv: [this.landlockLauncher(), ...landlockProfileArgs({ mode: 'workspace-write', workspaceRoot: instancePolicy.workspace }), '--', ...argv],
+        enforcement: 'full', denialSignatures: DENIAL_SIGNATURES.landlock, runnerFailureRules: RUNNER_FAILURE_RULES.landlock,
+      }
+    }
     if (this.runnerCommand !== undefined) {
       return {
         argv: [...this.runnerCommand, ...bwrapProfileArgs(policy), '--', ...argv],
