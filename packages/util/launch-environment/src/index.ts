@@ -139,6 +139,6 @@ declare module '@deepseek-ai/cordis' {
 export {
   instancePolicy, parseInstancePolicy, InstancePolicyDenied, pathWithin,
   denyRestricted, authorizeInstanceRemote, authorizeInstanceSelection, authorizeInstanceRequest,
-  instanceModelConfig, instanceChildEnvironment, instanceHttpAllowed,
+  instanceModelConfig, instanceChildEnvironment, instanceHttpAllowed, authorizeInstanceStatforms,
 } from './instance-policy.ts'
 export type { InstancePolicy } from './instance-policy.ts'

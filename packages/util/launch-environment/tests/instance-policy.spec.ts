@@ -17,7 +17,7 @@ describe('administrator-owned instance policy', () => {
     expect(() => (policy.readableRoots as string[]).push('/')).toThrow()
   })
   it.each([
-    { mode: 'ordinary' }, { publicOrigin: 'http://example.org' },
+    { mode: 'ordinary' }, { statforms: false }, { statforms: 'true' }, { publicOrigin: 'http://example.org' },
     { publicOrigin: 'https://example.org/' }, { publicOrigin: 'https://user@example.org' },
     { publicOrigin: 'https://example.org/path' }, { publicOrigin: 'https://example.org?x=1' },
     { publicOrigin: 1 }, { publicOrigin: '' }, { readableRoots: ['/'] }, { readableRoots: ['/srv'] },
@@ -33,6 +33,10 @@ describe('administrator-owned instance policy', () => {
   })
   it('retains an explicit canonical HTTPS public origin', () => {
     expect(parseInstancePolicy({ ...fixture(), publicOrigin: 'https://94.29.35.66' }).publicOrigin).toBe('https://94.29.35.66')
+  })
+  it('requires explicit administrator opt-in for the source', () => {
+    expect(parseInstancePolicy(fixture()).statforms).toBeUndefined()
+    expect(parseInstancePolicy({ ...fixture(), statforms: true }).statforms).toBe(true)
   })
   it('distinguishes sibling prefixes and parent traversal', () => {
     expect(pathWithin('/srv/work', '/srv/work/file')).toBe(true)

@@ -51,6 +51,8 @@ const endpoint = launchEnvironmentOf(ctx).get('DEEPSEEK_BASE_URL')?.value
 
 受限子进程仅接收 PATH、HOME、TMPDIR 和区域设置变量。项目 `.env` 被忽略。 仅从继承环境读取的 `DSH_MAINTENANCE_AUTH=1` 为 Web 维护提供新的内存浏览器签名密钥； 它不绕过实例策略，也不允许多个进程同时使用同一 state。
 
+`statforms: true` 显式启用受限实例中已审核的 Excel 插件操作。仅允许向 `/statforms-data/raw/snapshot`、`/statforms-data/raw/nodes`、`/statforms-data/raw/file-sheets`、`/statforms-data/raw/sheet` 和 `/statforms-data/chat/attach-sheets` 发送 POST 请求。`authorizeInstanceStatforms()` 在 RPC 和工具的执行方内部应用相同的允许列表；所有模式均拒绝未知操作。此标志不允许修改设置、模型、工作目录、凭据或权限。
+
 ### 各层的优先级
 
 | 层 | 它是什么 |

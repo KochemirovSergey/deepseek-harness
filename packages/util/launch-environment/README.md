@@ -51,6 +51,8 @@ Optional `publicOrigin` enables anonymous browser bootstrap at one canonical HTT
 
 Restricted children receive only PATH, HOME, TMPDIR and locale variables. The project `.env` is ignored. `DSH_MAINTENANCE_AUTH=1`, read only from the inherited environment, gives Web maintenance a fresh in-memory browser signing secret; it does not bypass instance policy or permit simultaneous processes over one state.
 
+`statforms: true` explicitly enables the reviewed Excel plugin operations in a restricted instance. Only POST requests to `/statforms-data/raw/snapshot`, `/statforms-data/raw/nodes`, `/statforms-data/raw/file-sheets`, `/statforms-data/raw/sheet`, and `/statforms-data/chat/attach-sheets` are admitted. `authorizeInstanceStatforms()` applies the same allowlist inside RPC and tool owners; unknown operations are rejected in every mode. The flag does not permit settings, model, workspace, credential, or permission changes.
+
 ### How layers rank
 
 | Layer | What it is |

@@ -7,6 +7,8 @@ export interface InstancePolicy {
   readonly mode: 'restricted'
   /** Canonical HTTPS origin permitting anonymous browser-session bootstrap. */
   readonly publicOrigin?: string
+  /** Enables only the reviewed Statforms catalog operations. */
+  readonly statforms?: true
   readonly workspace: string
   readonly temporaryDirectory: string
   readonly protectedRoots: readonly string[]
@@ -48,8 +50,9 @@ export function parseInstancePolicy(value: unknown): InstancePolicy {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error('instance policy must be an object')
   const input = value as Record<string, unknown>
   const required = ['mode', 'workspace', 'temporaryDirectory', 'protectedRoots', 'readableRoots', 'provider', 'model', 'agentPreset']
-  const keys = new Set([...required, 'reasoningEffort', 'maxTokens', 'publicOrigin'])
+  const keys = new Set([...required, 'reasoningEffort', 'maxTokens', 'publicOrigin', 'statforms'])
   if (required.some(key => !Object.hasOwn(input, key)) || Object.keys(input).some(key => !keys.has(key))) throw new Error('instance policy has missing or unknown fields')
+  if (input.statforms !== undefined && input.statforms !== true) throw new Error('instance policy statforms must be true or omitted')
   if (input.mode !== 'restricted') throw new Error('instance policy mode must be restricted')
   for (const key of ['workspace', 'temporaryDirectory', 'provider', 'model', 'agentPreset', 'reasoningEffort']) {
     if (key === 'reasoningEffort' && input[key] === undefined) continue
@@ -126,6 +129,21 @@ const REMOTE_OPERATIONS = new Set([
   'fileReferences/list', 'skills/list', 'fileUploads/upload', 'commands/list', 'settings/describe',
 ])
 
+const STATFORM_OPERATIONS = new Set([
+  'raw/snapshot', 'raw/nodes', 'raw/file-sheets', 'raw/sheet', 'chat/attach-sheets',
+])
+
+/**
+ * Authorize a reviewed source operation at its owner, including tool callers.
+ * @param operation - Exact Statforms catalog operation, without a channel prefix.
+ */
+export function authorizeInstanceStatforms(operation: string): void {
+  if (!STATFORM_OPERATIONS.has(operation)
+    || (instancePolicy !== undefined && instancePolicy.statforms !== true)) {
+    throw new InstancePolicyDenied(`statforms/${operation}`)
+  }
+}
+
 /**
  * Restrict every HTTP carrier before a plugin route or fallback can run.
  * @param method - HTTP request method.
@@ -142,6 +160,9 @@ export function instanceHttpAllowed(method: string, pathname: string, upgrade = 
       || pathname === '/api/file'
   }
   if (method !== 'POST') return false
+  if (instancePolicy.statforms === true && pathname.startsWith('/statforms-data/')) {
+    return STATFORM_OPERATIONS.has(pathname.slice('/statforms-data/'.length))
+  }
   return pathname === '/api/session/uploadFileBinary'
     || pathname === '/api/$events/result'
     || (pathname.startsWith('/api/') && REMOTE_OPERATIONS.has(pathname.slice(5)))
