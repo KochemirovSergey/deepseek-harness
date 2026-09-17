@@ -35,6 +35,7 @@ function response(): { value: ConnectionIndexResponse; state: ResponseState } {
   const state: ResponseState = {}
   return {
     value: {
+      setHeader(name, value) { state.headers = { ...state.headers, [name]: value } },
       writeHead(status, headers) {
         state.status = status
         if (headers !== undefined) state.headers = headers
@@ -262,5 +263,66 @@ describe('BrowserAuth', () => {
 
     await expect(createAuth(new RecordCredentials(), Number.MAX_SAFE_INTEGER))
       .rejects.toThrow(/safe timestamp range/u)
+  })
+})
+
+
+describe('anonymous restricted HTTPS bootstrap', () => {
+  const publicOrigin = 'https://94.29.35.66'
+  it('issues a secure cookie without a token and retains it across restarts', async () => {
+    const store = new RecordCredentials()
+    const auth = await BrowserAuth.create({}, credentials(store), 30, false, publicOrigin)
+    const res = response()
+    expect(auth.authorizeIndex(request('/?session=example', '94.29.35.66'), res.value)).toBe(true)
+    expect(res.state.headers?.location).toBeUndefined()
+    const setCookie = res.state.headers?.['set-cookie']
+    expect(setCookie).toContain('; Secure')
+    expect(setCookie).toContain('; HttpOnly; SameSite=Strict')
+    const cookie = setCookie!.split(';', 1)[0]!
+    expect(auth.isAuthenticated(request('/', '94.29.35.66'))).toBe(false)
+    expect(auth.authorizeIndex(request('/', '94.29.35.66', { cookie }), response().value)).toBe(true)
+    const restarted = await BrowserAuth.create({}, credentials(store), 30, false, publicOrigin)
+    expect(restarted.isAuthenticated(request('/', '94.29.35.66', { cookie }))).toBe(true)
+    expect(restarted.isAuthenticated(request('/', 'localhost:3083', { cookie }))).toBe(false)
+    const maintenance = await BrowserAuth.create({}, credentials(store), 30, true, publicOrigin)
+    expect(maintenance.isAuthenticated(request('/', '94.29.35.66', { cookie }))).toBe(false)
+    const locked = response()
+    maintenance.authorizeIndex(request('/', '94.29.35.66'), locked.value)
+    expect(locked.state.status).toBe(401)
+  })
+  it('does not turn loopback, token errors or non-root requests into anonymous entrypoints', async () => {
+    const auth = await BrowserAuth.create({}, credentials(new RecordCredentials()), 30, false, publicOrigin)
+    for (const req of [request('/'), request('/?token=wrong', '94.29.35.66'), request('/api/session/list', '94.29.35.66'), request('/', '94.29.35.66', { method: 'POST' })]) {
+      const res = response()
+      expect(auth.authorizeIndex(req, res.value)).toBe(false)
+      expect(res.state.status).toBe(401)
+      expect(res.state.headers?.['set-cookie']).toBeUndefined()
+    }
+    expect(exchange(auth).state.headers?.['set-cookie']).not.toContain('; Secure')
+    expect(exchange(auth, '94.29.35.66').state.headers?.['set-cookie']).toContain('; Secure')
+  })
+  it('accepts an external top-level link without redirecting or accepting cross-site API calls', async () => {
+    const auth = await BrowserAuth.create({}, credentials(new RecordCredentials()), 30, false, publicOrigin)
+    const res = response()
+    const req = { method: 'GET', url: '/', headers: {
+      host: '94.29.35.66', 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document',
+    } }
+    expect(auth.authorizeIndex(req, res.value)).toBe(true)
+    expect(res.state.headers?.['set-cookie']).toContain('; Secure')
+    expect(res.state.headers?.location).toBeUndefined()
+  })
+  it('rejects untrusted browser bootstrap before issuing a cookie', async () => {
+    const auth = await BrowserAuth.create({}, credentials(new RecordCredentials()), 30, false, publicOrigin)
+    for (const headers of [
+      { host: '94.29.35.66', origin: 'null' },
+      { host: '94.29.35.66', origin: 'http://94.29.35.66' },
+      { host: '94.29.35.66', 'sec-fetch-site': 'cross-site' },
+      { host: 'evil.example', 'x-forwarded-host': '94.29.35.66' },
+    ]) {
+      const res = response()
+      expect(auth.authorizeIndex({ method: 'GET', url: '/', headers }, res.value)).toBe(false)
+      expect(res.state.status).toBe(403)
+      expect(res.state.headers?.['set-cookie']).toBeUndefined()
+    }
   })
 })

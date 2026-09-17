@@ -47,6 +47,8 @@ const endpoint = launchEnvironmentOf(ctx).get('DEEPSEEK_BASE_URL')?.value
 
 Required fields are `mode: "restricted"`, `workspace`, `temporaryDirectory`, `protectedRoots`, `readableRoots`, `provider`, `model`, and `agentPreset`. Optional `reasoningEffort` and positive integer `maxTokens` fix response parameters. Paths must exist and be canonical. Workspace and temporary directory must be separate; no grant may be `/` or overlap protected roots. Administrators must include all service state, credentials, backups and configuration in protected roots, and grant only the runtime and system files needed by child processes. Configuration contains no secrets.
 
+Optional `publicOrigin` enables anonymous browser bootstrap at one canonical HTTPS origin, without a trailing slash, credentials, query or path. It cannot be set by profiles or browser settings. The [Connection package](../../client/connection/README.md#browser-authentication-and-request-trust) owns cookie and request-trust behavior.
+
 Restricted children receive only PATH, HOME, TMPDIR and locale variables. The project `.env` is ignored. `DSH_MAINTENANCE_AUTH=1`, read only from the inherited environment, gives Web maintenance a fresh in-memory browser signing secret; it does not bypass instance policy or permit simultaneous processes over one state.
 
 ### How layers rank

@@ -47,6 +47,8 @@ const endpoint = launchEnvironmentOf(ctx).get('DEEPSEEK_BASE_URL')?.value
 
 必需字段为 `mode: "restricted"`、`workspace`、`temporaryDirectory`、`protectedRoots`、 `readableRoots`、`provider`、`model` 和 `agentPreset`。可选的 `reasoningEffort` 和正整数 `maxTokens` 固定响应参数。路径必须存在且为规范路径。workspace 和临时目录必须分离； 任何授权不得为 `/`，也不得与受保护根目录重叠。管理员必须将所有服务 state、凭据、 备份和配置纳入受保护根目录，只授权子进程需要的运行时和系统文件。配置不包含秘密。
 
+可选的 `publicOrigin` 在一个规范 HTTPS origin 启用匿名浏览器入口，不能包含末尾斜线、凭据、查询或路径。Profile 和浏览器设置不能修改它。[Connection 包](../../client/connection/README.zh.md#browser-authentication-and-request-trust)负责 cookie 与请求信任行为。
+
 受限子进程仅接收 PATH、HOME、TMPDIR 和区域设置变量。项目 `.env` 被忽略。 仅从继承环境读取的 `DSH_MAINTENANCE_AUTH=1` 为 Web 维护提供新的内存浏览器签名密钥； 它不绕过实例策略，也不允许多个进程同时使用同一 state。
 
 ### 各层的优先级

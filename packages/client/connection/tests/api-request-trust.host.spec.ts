@@ -113,3 +113,24 @@ describe('isTrustedApiRequest', () => {
     expect(isTrustedApiRequest(request({ ...markers, host: '128.0.0.1' }), [])).toBe(false)
   })
 })
+
+
+describe('restricted public origin', () => {
+  const publicOrigin = 'https://94.29.35.66'
+  it('matches the exact HTTPS origin and preserves loopback access', () => {
+    expect(isTrustedApiRequest(request({ host: '94.29.35.66', origin: publicOrigin }), [], publicOrigin)).toBe(true)
+    expect(isTrustedApiRequest(request({ host: '94.29.35.66' }), [], publicOrigin)).toBe(true)
+    expect(isTrustedApiRequest(request({ host: 'localhost:3083', origin: 'http://localhost:3083' }), [], publicOrigin)).toBe(true)
+  })
+  it.each([
+    { host: '94.29.35.66', origin: 'http://94.29.35.66' },
+    { host: '94.29.35.66', origin: 'null' },
+    { host: '94.29.35.66', origin: 'https://evil.example' },
+    { host: '94.29.35.66', origin: 'https://94.29.35.66:444' },
+    { host: '94.29.35.66', 'sec-fetch-site': 'cross-site' },
+    { host: '94.29.35.66:444', origin: publicOrigin },
+    { host: 'evil.example', 'x-forwarded-host': '94.29.35.66', 'x-forwarded-proto': 'https' },
+  ])('rejects public trust bypass %j', (headers) => {
+    expect(isTrustedApiRequest(request(headers), ['evil.example', '94.29.35.66'], publicOrigin)).toBe(false)
+  })
+})

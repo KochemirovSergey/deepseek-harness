@@ -92,6 +92,8 @@ export interface ConnectionIndexRequest extends ConnectionTrustRequest {
 
 /** Root/index response operations owned by the browser-token exchange. */
 export interface ConnectionIndexResponse {
+  /** Add bootstrap headers before the static server renders the index. */
+  setHeader(name: string, value: string): unknown
   writeHead(status: number, headers?: Readonly<Record<string, string>>): unknown
   end(body?: string): unknown
 }

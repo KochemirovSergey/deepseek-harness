@@ -86,9 +86,10 @@ function isTrustedAuthority(hostUrl: URL, trustedHosts: readonly string[]): bool
  * Decide whether one /api request may reach the RPC bridge.
  * @param request - Node HTTP or Fetch request facts (headers).
  * @param trustedHosts - non-loopback authorities this deployment serves: exact `host:port`, or port-less `host` matching any port.
+ * @param publicOrigin - immutable restricted-instance HTTPS origin, matched exactly.
  * @returns true when the Host is ours (loopback or trusted) and any attached browser markers are same-origin.
  */
-export function isTrustedApiRequest(request: ConnectionTrustRequest, trustedHosts: readonly string[]): boolean {
+export function isTrustedApiRequest(request: ConnectionTrustRequest, trustedHosts: readonly string[], publicOrigin?: string): boolean {
   // Host fence (DNS-rebinding defense), applied to every request: the browser
   // fills Host from the URL it believes it is talking to, so a rebound page
   // carries the attacker's domain here even though the socket lands on this
@@ -100,6 +101,13 @@ export function isTrustedApiRequest(request: ConnectionTrustRequest, trustedHost
   if (host === undefined) return false
   const hostUrl = parseAuthority(host)
   if (hostUrl === undefined) return false
+  if (publicOrigin !== undefined && host === new URL(publicOrigin).host) {
+    const origin = header(request.headers, 'origin')
+    return header(request.headers, 'sec-fetch-site') !== 'cross-site'
+      && (origin === undefined || origin === publicOrigin)
+  }
+  // Public mode accepts no additional network authorities from mutable profiles.
+  if (publicOrigin !== undefined && !isLoopbackHostname(hostUrl.hostname)) return false
   if (!isLoopbackHostname(hostUrl.hostname) && !isTrustedAuthority(hostUrl, trustedHosts)) return false
   // Cross-site fence: modern browsers label the initiator relationship on
   // every fetch; an explicit cross-site marker is refused regardless of Origin.

@@ -52,7 +52,12 @@ class MockAdapter extends LlmAdapter {
   }
 }
 ctx.llm.registerAdapter(['mock'], new MockAdapter());
-if (mode === 'seed' || mode === 'lifecycle') {
+if (mode === 'public') {
+  const { runPublicWeb } = await import('./public-web.linux.mjs');
+  try { await runPublicWeb({ ctx, port, root }); }
+  catch (error) { console.error(error); await shutdown.shutdown(1); throw error; }
+  await shutdown.shutdown(0);
+} else if (mode === 'seed' || mode === 'lifecycle') {
   const { runLifecycle } = await import('./restricted-lifecycle.linux.mjs');
   try { await runLifecycle({ ctx, mode, root, calls }); }
   catch (error) { console.error(error); await shutdown.shutdown(1); throw error; }

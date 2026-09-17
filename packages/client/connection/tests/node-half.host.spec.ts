@@ -64,6 +64,7 @@ function fakeResponse(): {
   const chunks: Buffer[] = []
   const response = Object.assign(new EventEmitter(), {
     writableEnded: false,
+    setHeader(name: string, value: string) { state.headers = { ...state.headers, [name]: value } },
     writeHead(value: number, headers?: Record<string, string>) {
       state.status = value
       if (headers !== undefined) state.headers = headers

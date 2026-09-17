@@ -1,5 +1,6 @@
 /** Browser-session authentication for the Host Connection carrier. */
 
+import { isTrustedApiRequest } from './api-request-trust.ts'
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
 import type { CredentialProvider, CredentialRecord } from '@deepseek-ai/dsh-credentials'
@@ -118,8 +119,8 @@ function cookieValue(headerValue: string, name: string): string | undefined {
 }
 
 /** Serialize the fixed browser-session attributes; generated names and values are cookie-safe base64url. */
-function sessionCookie(name: string, value: string, expiresAt: number, maxAgeSeconds: number): string {
-  return `${name}=${value}; Max-Age=${String(maxAgeSeconds)}; Path=/; Expires=${new Date(expiresAt).toUTCString()}; HttpOnly; SameSite=Strict`
+function sessionCookie(name: string, value: string, expiresAt: number, maxAgeSeconds: number, secure = false): string {
+  return `${name}=${value}; Max-Age=${String(maxAgeSeconds)}; Path=/; Expires=${new Date(expiresAt).toUTCString()}; HttpOnly; SameSite=Strict${secure ? '; Secure' : ''}`
 }
 
 function signature(secret: Buffer, body: string): Buffer {
@@ -190,6 +191,7 @@ export class BrowserAuth {
     processOwner: object,
     private readonly secret: Buffer,
     maxAgeDays: number,
+    private readonly publicOrigin?: string,
   ) {
     this.launchToken = processLaunchToken(processOwner)
     this.maxAgeMilliseconds = maxAgeDays * DAY_MILLISECONDS
@@ -206,6 +208,7 @@ export class BrowserAuth {
    * @param credentials - persistent credential provider for the Web profile.
    * @param maxAgeDays - positive absolute browser-cookie lifetime in days.
    * @param ephemeral - Use a fresh in-memory signing secret for isolated maintenance access.
+   * @param publicOrigin - immutable restricted-instance HTTPS origin; unavailable in maintenance.
    * @returns initialized authentication owner with the process owner's launch token.
    */
   static async create(
@@ -213,8 +216,12 @@ export class BrowserAuth {
     credentials: CredentialProvider,
     maxAgeDays: number,
     ephemeral = false,
+    publicOrigin?: string,
   ): Promise<BrowserAuth> {
-    return new BrowserAuth(processOwner, ephemeral ? randomBytes(SECRET_BYTES) : await initializeSecret(credentials), maxAgeDays)
+    return new BrowserAuth(
+      processOwner, ephemeral ? randomBytes(SECRET_BYTES) : await initializeSecret(credentials),
+      maxAgeDays, ephemeral ? undefined : publicOrigin,
+    )
   }
 
   /**
@@ -234,7 +241,8 @@ export class BrowserAuth {
   /**
    * Authenticate an index request. A valid root query token mints the cookie
    * and redirects to clean `/`; a valid cookie lets the caller serve the
-   * index; every other request receives the same minimal 401 response.
+   * index. A restricted public origin also bootstraps a secure cookie without a token.
+   * Other requests receive 401, or 403 for a public-mode trust rejection.
    * @param req - incoming root or configured-index request.
    * @param res - response owned when this method returns false.
    * @returns true only when the caller may serve index.html.
@@ -242,28 +250,38 @@ export class BrowserAuth {
   authorizeIndex(req: ConnectionIndexRequest, res: ConnectionIndexResponse): boolean {
     /* v8 ignore next -- node:http always supplies url on server requests. */
     const url = new URL(req.url ?? '/', 'http://dsh.invalid')
+    // Opening an external link is a navigation, not a cross-site API invocation.
+    const navigation = req.method === 'GET' && url.pathname === '/'
+      && header(req.headers, 'sec-fetch-mode') === 'navigate'
+      && header(req.headers, 'sec-fetch-dest') === 'document'
+      && header(req.headers, 'origin') === undefined
+    let trustRequest: ConnectionTrustRequest = req
+    if (navigation) {
+      const headers = req.headers instanceof Headers ? new Headers(req.headers) : new Headers(
+        Object.entries(req.headers).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+      )
+      headers.delete('sec-fetch-site')
+      trustRequest = { headers }
+    }
+    if (this.publicOrigin !== undefined && !isTrustedApiRequest(trustRequest, [], this.publicOrigin)) {
+      res.writeHead(403, { 'cache-control': 'no-store' })
+      res.end('forbidden')
+      return false
+    }
     const tokens = url.searchParams.getAll(TOKEN_QUERY)
+    const publicRequest = this.publicOrigin !== undefined
+      && header(req.headers, 'host') === new URL(this.publicOrigin).host
+    if (publicRequest) res.setHeader('cache-control', 'no-store')
+    if (publicRequest && req.method === 'GET' && url.pathname === '/'
+      && tokens.length === 0 && !this.isAuthenticated(req)) {
+      this.issueCookie(req, res, undefined, true)
+      return true
+    }
     if (tokens.length > 0) {
       const authority = requestAuthority(req.headers)
       if (req.method === 'GET' && url.pathname === '/' && tokens.length === 1
         && authority !== undefined && tokenMatches(tokens.join(''), this.launchToken)) {
-        const issuedAt = Date.now()
-        const expiresAt = issuedAt + this.maxAgeMilliseconds
-        const value = encodeCookie({
-          version: COOKIE_PAYLOAD_VERSION,
-          authority,
-          issuedAt,
-          expiresAt,
-        }, this.secret)
-        res.writeHead(303, {
-          'cache-control': 'no-store',
-          'location': '/',
-          'referrer-policy': 'no-referrer',
-          'set-cookie': sessionCookie(
-            cookieName(authority), value, expiresAt, Math.floor(this.maxAgeMilliseconds / 1000),
-          ),
-        })
-        res.end()
+        this.issueCookie(req, res, '/', publicRequest)
         return false
       }
       if (req.method === 'GET' && url.pathname === '/' && this.isAuthenticated(req)) {
@@ -301,6 +319,24 @@ export class BrowserAuth {
       && payload.expiresAt > now
       && payload.expiresAt > payload.issuedAt
       && payload.expiresAt - payload.issuedAt <= this.maxAgeMilliseconds
+  }
+
+  private issueCookie(req: ConnectionIndexRequest, res: ConnectionIndexResponse, location: string | undefined, secure: boolean): void {
+    const authority = requestAuthority(req.headers)
+    if (authority === undefined) throw new Error('browser cookie requires a validated authority')
+    const issuedAt = Date.now()
+    const expiresAt = issuedAt + this.maxAgeMilliseconds
+    const value = encodeCookie({ version: COOKIE_PAYLOAD_VERSION, authority, issuedAt, expiresAt }, this.secret)
+    const headers = {
+      'cache-control': 'no-store', 'referrer-policy': 'no-referrer',
+      'set-cookie': sessionCookie(cookieName(authority), value, expiresAt, Math.floor(this.maxAgeMilliseconds / 1000), secure),
+    }
+    if (location === undefined) {
+      for (const [name, value] of Object.entries(headers)) res.setHeader(name, value)
+    } else {
+      res.writeHead(303, { ...headers, location })
+      res.end()
+    }
   }
 
   private writeUnauthorized(req: ConnectionIndexRequest, res: ConnectionIndexResponse): void {

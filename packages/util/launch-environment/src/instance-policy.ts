@@ -5,6 +5,8 @@ import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 /** Launch configuration. Paths name pre-existing directories, never browser selections. */
 export interface InstancePolicy {
   readonly mode: 'restricted'
+  /** Canonical HTTPS origin permitting anonymous browser-session bootstrap. */
+  readonly publicOrigin?: string
   readonly workspace: string
   readonly temporaryDirectory: string
   readonly protectedRoots: readonly string[]
@@ -46,7 +48,7 @@ export function parseInstancePolicy(value: unknown): InstancePolicy {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error('instance policy must be an object')
   const input = value as Record<string, unknown>
   const required = ['mode', 'workspace', 'temporaryDirectory', 'protectedRoots', 'readableRoots', 'provider', 'model', 'agentPreset']
-  const keys = new Set([...required, 'reasoningEffort', 'maxTokens'])
+  const keys = new Set([...required, 'reasoningEffort', 'maxTokens', 'publicOrigin'])
   if (required.some(key => !Object.hasOwn(input, key)) || Object.keys(input).some(key => !keys.has(key))) throw new Error('instance policy has missing or unknown fields')
   if (input.mode !== 'restricted') throw new Error('instance policy mode must be restricted')
   for (const key of ['workspace', 'temporaryDirectory', 'provider', 'model', 'agentPreset', 'reasoningEffort']) {
@@ -56,6 +58,11 @@ export function parseInstancePolicy(value: unknown): InstancePolicy {
   if (input.maxTokens !== undefined && (!Number.isSafeInteger(input.maxTokens) || (input.maxTokens as number) <= 0)) throw new Error('instance policy maxTokens must be positive')
   for (const key of ['protectedRoots', 'readableRoots']) {
     if (!Array.isArray(input[key]) || input[key].length === 0 || input[key].some((path: unknown) => typeof path !== 'string' || !isAbsolute(path))) throw new Error(`instance policy ${key} must contain absolute paths`)
+  }
+  if (input.publicOrigin !== undefined) {
+    if (typeof input.publicOrigin !== 'string') throw new Error('instance policy publicOrigin must be a canonical HTTPS origin')
+    const origin = new URL(input.publicOrigin)
+    if (origin.protocol !== 'https:' || origin.origin !== input.publicOrigin) throw new Error('instance policy publicOrigin must be a canonical HTTPS origin')
   }
   const policy = input as unknown as InstancePolicy
   const grants = [policy.workspace, policy.temporaryDirectory, ...policy.readableRoots]
