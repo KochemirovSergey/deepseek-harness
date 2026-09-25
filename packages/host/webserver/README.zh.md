@@ -124,3 +124,5 @@ index 启动输入分两层。`collectIndexInjections()` 收集一张全新的�
 无。
 
 </details>
+
+进程设置 `DSH_LOCAL_ENTRY_ORIGIN` 时，服务只允许绑定 `127.0.0.1`；本地浏览器会话由 client-connection 包创建。

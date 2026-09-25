@@ -192,6 +192,7 @@ export class BrowserAuth {
     private readonly secret: Buffer,
     maxAgeDays: number,
     private readonly publicOrigin?: string,
+    private readonly localEntryOrigin?: string,
   ) {
     this.launchToken = processLaunchToken(processOwner)
     this.maxAgeMilliseconds = maxAgeDays * DAY_MILLISECONDS
@@ -209,6 +210,7 @@ export class BrowserAuth {
    * @param maxAgeDays - positive absolute browser-cookie lifetime in days.
    * @param ephemeral - Use a fresh in-memory signing secret for isolated maintenance access.
    * @param publicOrigin - immutable restricted-instance HTTPS origin; unavailable in maintenance.
+   * @param localEntryOrigin - trusted local admin entry that creates a session without a launch token.
    * @returns initialized authentication owner with the process owner's launch token.
    */
   static async create(
@@ -217,19 +219,28 @@ export class BrowserAuth {
     maxAgeDays: number,
     ephemeral = false,
     publicOrigin?: string,
+    localEntryOrigin?: string,
   ): Promise<BrowserAuth> {
+    if (localEntryOrigin !== undefined) {
+      const origin = new URL(localEntryOrigin)
+      if (ephemeral || publicOrigin !== undefined || origin.protocol !== 'http:'
+        || origin.hostname !== '127.0.0.1' || origin.origin !== localEntryOrigin) {
+        throw new Error('Local entry requires a canonical loopback HTTP origin and an ordinary admin instance')
+      }
+    }
     return new BrowserAuth(
       processOwner, ephemeral ? randomBytes(SECRET_BYTES) : await initializeSecret(credentials),
-      maxAgeDays, ephemeral ? undefined : publicOrigin,
+      maxAgeDays, ephemeral ? undefined : publicOrigin, localEntryOrigin,
     )
   }
 
   /**
    * Add this process's launch token to the caller's application URL.
    * @param baseUrl - clean browser URL whose authority and mount are preserved.
-   * @returns the same URL carrying the process token as its sole authentication input.
+   * @returns the configured clean local entry, or the base URL with the process token.
    */
   authenticatedUrl(baseUrl: string): string {
+    if (this.localEntryOrigin !== undefined) return `${this.localEntryOrigin}/`
     const url = new URL(baseUrl)
     url.searchParams.set(TOKEN_QUERY, this.launchToken)
     return url.href
@@ -265,6 +276,19 @@ export class BrowserAuth {
       res.end('forbidden')
       return false
     }
+    if (this.localEntryOrigin !== undefined) {
+      if (header(req.headers, 'host') !== new URL(this.localEntryOrigin).host
+        || (header(req.headers, 'origin') !== undefined && header(req.headers, 'origin') !== this.localEntryOrigin)
+        || !isTrustedApiRequest(trustRequest, [])) {
+        res.writeHead(403, { 'cache-control': 'no-store' })
+        res.end('forbidden')
+        return false
+      }
+      if (req.method === 'GET' && url.pathname === '/' && !this.isAuthenticated(req)) {
+        this.issueCookie(req, res, undefined, false)
+        return true
+      }
+    }
     const tokens = url.searchParams.getAll(TOKEN_QUERY)
     const publicRequest = this.publicOrigin !== undefined
       && header(req.headers, 'host') === new URL(this.publicOrigin).host
@@ -278,7 +302,7 @@ export class BrowserAuth {
       const authority = requestAuthority(req.headers)
       if (req.method === 'GET' && url.pathname === '/' && tokens.length === 1
         && authority !== undefined && tokenMatches(tokens.join(''), this.launchToken)) {
-        this.issueCookie(req, res, '/', publicRequest)
+        this.issueCookie(req, res, './', publicRequest)
         return false
       }
       if (req.method === 'GET' && url.pathname === '/' && this.isAuthenticated(req)) {
@@ -304,6 +328,8 @@ export class BrowserAuth {
    * @returns true only for an unexpired cookie signed by this activation's loaded secret.
    */
   isAuthenticated(request: ConnectionTrustRequest): boolean {
+    if (this.localEntryOrigin !== undefined
+      && header(request.headers, 'host') !== new URL(this.localEntryOrigin).host) return false
     const authority = requestAuthority(request.headers)
     const rawCookie = header(request.headers, 'cookie')
     if (authority === undefined || rawCookie === undefined) return false

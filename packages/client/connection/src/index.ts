@@ -132,13 +132,19 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
   // silently authorizing its hostname prefix at request time.
   for (const entry of trustedHosts) assertTrustedAuthority(entry)
   assertImageBodyCapacity(ctx, maxRequestBodyBytes)
+  const localEntryOrigin = launchEnvironmentOf(ctx).getFrom('DSH_LOCAL_ENTRY_ORIGIN', ['process'])?.value
+  const maintenance = launchEnvironmentOf(ctx).getFrom('DSH_MAINTENANCE_AUTH', ['process'])?.value === '1'
+  if (localEntryOrigin !== undefined && (instancePolicy !== undefined || maintenance)) {
+    throw new Error('DSH_LOCAL_ENTRY_ORIGIN is unavailable in restricted or maintenance instances')
+  }
   const connection = new HostConnectionService(
     ctx,
     trustedHosts,
     await BrowserAuth.create(
       ctx.root, ctx.credentials, cookieMaxAgeDays,
-      launchEnvironmentOf(ctx).getFrom('DSH_MAINTENANCE_AUTH', ['process'])?.value === '1',
+      maintenance,
       instancePolicy?.publicOrigin,
+      localEntryOrigin,
     ),
   )
   ctx.inject(['webServer'], (webCtx) => {

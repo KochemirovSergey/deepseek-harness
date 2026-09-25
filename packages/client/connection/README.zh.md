@@ -89,3 +89,5 @@ API Gateway Client 把内部 `$events` 逻辑流注册为唯一 generation sourc
 </details>
 
 **运行时不变式：** 不发布伴生入口。浏览器会话验证会在请求授权工作时异步读取凭据记录，而记录的 commit-event 生命周期由 credentials 伴生入口负责；流与重连的时序及 rpcId 往返约束由行为规范直接验证，路由注册与 dispose（资源释放）的对称性由 webserver 伴生入口审计。
+
+管理 SSH 部署可在进程环境中设置 `DSH_LOCAL_ENTRY_ORIGIN=http://127.0.0.1:3080`。打开根页面时自动创建现有 HttpOnly 会话 cookie，无需带令牌的链接；API 仍校验 cookie 和请求来源。仅接受配置的精确地址，受限实例和维护模式禁止此选项，HTTP 服务必须绑定 `127.0.0.1`。部署必须阻止不受信任的本地进程访问管理入口。此模式打印的 URL 不包含启动令牌。

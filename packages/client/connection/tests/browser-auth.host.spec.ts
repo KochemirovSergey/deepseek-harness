@@ -349,3 +349,48 @@ describe('anonymous restricted HTTPS bootstrap', () => {
     }
   })
 })
+
+
+describe('local administrative entry', () => {
+  it('opens a clean page without a secret URL and preserves cookie authentication', async () => {
+    const store = new RecordCredentials()
+    const origin = 'http://127.0.0.1:3080'
+    const auth = await BrowserAuth.create({}, credentials(store), 30, false, undefined, origin)
+    expect(auth.authenticatedUrl('http://127.0.0.1:3082/')).toBe(`${origin}/`)
+    expect(auth.isAuthenticated(request('/api'))).toBe(false)
+    const res = response()
+    expect(auth.authorizeIndex(request('/'), res.value)).toBe(true)
+    const cookie = res.state.headers!['set-cookie']!.split(';', 1)[0]!
+    expect(cookie).toContain('=v1.')
+    expect(res.state.headers!['set-cookie']).toContain('HttpOnly')
+    expect(auth.isAuthenticated(request('/api', '127.0.0.1:3080', { cookie }))).toBe(true)
+    const restarted = await BrowserAuth.create({}, credentials(store), 30, false, undefined, origin)
+    expect(restarted.isAuthenticated(request('/api', '127.0.0.1:3080', { cookie }))).toBe(true)
+    expect(restarted.isAuthenticated(request('/api', '127.0.0.1:3082', { cookie }))).toBe(false)
+  })
+
+  it.each([
+    { host: 'localhost:3080' },
+    { host: '127.0.0.1:3082' },
+    { host: 'evil.example' },
+    { host: '127.0.0.1:3080', origin: 'https://evil.example' },
+    { host: '127.0.0.1:3080', origin: 'null' },
+    { host: '127.0.0.1:3080', origin: 'https://127.0.0.1:3080' },
+    { host: '127.0.0.1:3080', 'sec-fetch-site': 'cross-site' },
+  ])('rejects an untrusted local entry request %j', async (headers) => {
+    const auth = await BrowserAuth.create({}, credentials(new RecordCredentials()), 30, false, undefined, 'http://127.0.0.1:3080')
+    const res = response()
+    expect(auth.authorizeIndex({ method: 'GET', url: '/', headers }, res.value)).toBe(false)
+    expect(res.state.status).toBe(403)
+    expect(res.state.headers?.['set-cookie']).toBeUndefined()
+  })
+
+  it.each(['http://0.0.0.0:3080', 'https://127.0.0.1:3080', 'http://127.0.0.1:3080/', 'http://user@127.0.0.1:3080'])('rejects invalid entry %s', async (origin) => {
+    await expect(BrowserAuth.create({}, credentials(new RecordCredentials()), 30, false, undefined, origin)).rejects.toThrow()
+  })
+
+  it('rejects local entry in maintenance and public modes', async () => {
+    await expect(BrowserAuth.create({}, credentials(new RecordCredentials()), 30, true, undefined, 'http://127.0.0.1:3080')).rejects.toThrow()
+    await expect(BrowserAuth.create({}, credentials(new RecordCredentials()), 30, false, 'https://example.org', 'http://127.0.0.1:3080')).rejects.toThrow()
+  })
+})

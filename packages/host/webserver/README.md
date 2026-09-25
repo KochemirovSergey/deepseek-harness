@@ -124,3 +124,5 @@ These limits define where the server is intentionally minimal. They are current 
 None.
 
 </details>
+
+When the process sets `DSH_LOCAL_ENTRY_ORIGIN`, this server rejects any bind host other than `127.0.0.1`; the client-connection package owns local browser session creation.

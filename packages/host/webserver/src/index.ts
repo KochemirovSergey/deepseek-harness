@@ -6,7 +6,7 @@
  * Route handlers retain direct response ownership.
  */
 
-import { instanceHttpAllowed } from '@deepseek-ai/dsh-launch-environment'
+import { instanceHttpAllowed, launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 import { createServer } from 'node:http'
 import type { IncomingMessage, ServerResponse, Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -144,6 +144,10 @@ export class WebServer extends Service {
 
   constructor(ctx: Context, private config: Config) {
     super(ctx, 'webServer')
+    if (launchEnvironmentOf(ctx).getFrom('DSH_LOCAL_ENTRY_ORIGIN', ['process']) !== undefined
+      && config.host !== '127.0.0.1') {
+      throw new Error('Local admin entry must listen on 127.0.0.1')
+    }
     const resolved = config as ResolvedConfig
     this.gzip = resolved.compression === 'gzip' ? createGzipMiddleware(resolved) : undefined
   }

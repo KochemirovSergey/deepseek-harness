@@ -65,7 +65,7 @@ function cleanEnvironment(root: string, dshHome: string): NodeJS.ProcessEnv {
 }
 
 /** Start the public source CLI and wait for its authenticated readiness URL. */
-async function startWeb(root: string, dshHome: string, port: number): Promise<RunningWeb> {
+async function startWeb(root: string, dshHome: string, port: number, localEntry = false): Promise<RunningWeb> {
   const child = spawn(process.execPath, [
     '--import', TSX_LOADER,
     DSH_SOURCE_BIN,
@@ -74,7 +74,7 @@ async function startWeb(root: string, dshHome: string, port: number): Promise<Ru
     '--port', String(port),
   ], {
     cwd: root,
-    env: cleanEnvironment(root, dshHome),
+    env: { ...cleanEnvironment(root, dshHome), ...(localEntry ? { DSH_LOCAL_ENTRY_ORIGIN: `http://127.0.0.1:${String(port)}` } : {}) },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   let output = ''
@@ -204,6 +204,34 @@ describe('dsh web authentication through the real CLI', () => {
     } finally {
       if (second !== undefined) await stopWeb(second)
       if (first !== undefined) await stopWeb(first)
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+})
+
+
+describe('dsh web local entry through the real CLI', () => {
+  it('opens without a token, authenticates API calls, and survives restart', { timeout: 180_000 }, async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-web-local-entry-'))
+    const home = join(root, '.dsh')
+    const port = await freePort()
+    let running: RunningWeb | undefined
+    try {
+      running = await startWeb(root, home, port, true)
+      expect(running.launchUrl).toBe(`http://127.0.0.1:${String(port)}/`)
+      expect((await describeSettings(port, `127.0.0.1:${String(port)}`)).status).toBe(401)
+      const page = await fetch(running.launchUrl)
+      expect(page.status).toBe(200)
+      const cookie = page.headers.get('set-cookie')!.split(';', 1)[0]!
+      expect((await describeSettings(port, `127.0.0.1:${String(port)}`, cookie)).status).toBe(200)
+      const foreign = await fetch(running.launchUrl, { headers: { Origin: 'https://evil.example' } })
+      expect(foreign.status).toBe(403)
+      await stopWeb(running)
+      running = await startWeb(root, home, port, true)
+      expect((await describeSettings(port, `127.0.0.1:${String(port)}`, cookie)).status).toBe(200)
+      expect((await fetch(running.launchUrl)).status).toBe(200)
+    } finally {
+      if (running !== undefined) await stopWeb(running)
       await rm(root, { recursive: true, force: true })
     }
   })

@@ -89,3 +89,5 @@ None.
 </details>
 
 **Runtime invariant:** No companion is published. Browser-session verification reads the credential record asynchronously at the request that authorizes work, while the credentials companion owns record commit-event lifetime. Stream/reconnect sequencing and rpcId round-trip discipline are exercised directly by behavior specs, and route register/dispose symmetry is audited by the webserver companion.
+
+An administrative SSH deployment can set the process-only `DSH_LOCAL_ENTRY_ORIGIN=http://127.0.0.1:3080`. A clean root navigation automatically creates the existing HttpOnly session cookie; API calls still require that cookie and the request-trust checks. Only the exact configured authority is accepted. Restricted and maintenance instances reject this option, and the HTTP server must bind to `127.0.0.1`. The deployment must prevent untrusted local processes from reaching this administrative entry. The printed URL contains no launch token in this mode.

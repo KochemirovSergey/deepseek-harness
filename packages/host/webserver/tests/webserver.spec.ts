@@ -11,7 +11,7 @@ import { connect } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context, FiberState } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
@@ -21,6 +21,7 @@ let root: string | undefined
 let context: Context | undefined
 
 afterEach(async () => {
+  vi.unstubAllEnvs()
   await context?.fiber.dispose()
   context = undefined
   if (root !== undefined) await rm(root, { recursive: true, force: true })
@@ -374,4 +375,11 @@ describe('real Loader composition', () => {
       root = firstRoot
     }
   })
+})
+
+
+it('refuses a network bind when local administrative entry is enabled', () => {
+  vi.stubEnv('DSH_LOCAL_ENTRY_ORIGIN', 'http://127.0.0.1:3080')
+  context = new Context()
+  expect(() => new HttpServer(context!, { host: '0.0.0.0', port: 0 })).toThrow('must listen on 127.0.0.1')
 })
