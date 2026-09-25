@@ -351,7 +351,7 @@ function mount(
     )) as ConversationContentProps['useFactorySlot']
     return (
       <FactoryViewsTestContext.Provider value={common}>
-        <ConversationContent restricted={options.restricted} {...({ ...common, ...runtimeProps, ...input, useFactorySlot })} />
+        <ConversationContent restricted={options.restricted ?? false} {...({ ...common, ...runtimeProps, ...input, useFactorySlot })} />
       </FactoryViewsTestContext.Provider>
     )
   }) as ConversationSlotProps['renderFactorySlot']
