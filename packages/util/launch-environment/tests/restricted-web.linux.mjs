@@ -12,7 +12,7 @@ assert(root?.startsWith('/var/lib/dsh-user-access-test/'));
 const moduleAt = rel => import(pathToFileURL(path.join(build, rel)).href);
 const { loadLayeredEnv } = await moduleAt('packages/boot/app-boot/lib/index.js');
 const bin = await fs.readFile(path.join(build, 'apps/cli/lib/bin.js'), 'utf8');
-const chunk = /import\("(\.\/profile-boot-[^"]+\.js)"\)/.exec(bin)?.[1];
+const chunk = /import\("(\.\/profile-boot(?:-[^"]+)?\.js)"\)/.exec(bin)?.[1];
 assert(chunk);
 const { runProfile } = await moduleAt('apps/cli/lib/' + chunk);
 const { LlmAdapter } = await moduleAt('packages/llm/llm/lib/index.js');
@@ -41,6 +41,26 @@ class MockAdapter extends LlmAdapter {
     const last = options.messages.filter(message => message.role === 'user' && message.source?.kind === 'user').at(-1);
     const prompt = last?.content.filter(block => block.type === 'text').map(block => block.text).join('') ?? '';
     calls.push({ prompt, userTexts: options.messages.filter(message => message.role === 'user').flatMap(message => message.content.filter(block => block.type === 'text').map(block => block.text)), provider: options.provider, model: options.model, maxTokens: options.maxTokens });
+    if (prompt === 'DEMONSTRATION_ACCEPTANCE') {
+      const tail = options.messages.slice(options.messages.indexOf(last) + 1);
+      const called = name => tail.some(message => message.content?.some(block => block.type === 'tool-call' && block.name === name));
+      const name = !called('ui_demo_catalog') ? 'ui_demo_catalog' : !called('ui_demo_prepare') ? 'ui_demo_prepare' : null;
+      if (name) {
+        const scenario = { title: 'Проверка пользовательской демонстрации', steps: [
+          { app: 'dsh', target: 'conversation', text: 'Чат DSH: вопросы и ответы.' },
+          { app: 'dsh', target: 'composer', text: 'Поле сообщения DSH.' },
+          { app: 'jsonrender', target: 'catalog-title', text: 'Каталог отчётов.' },
+          { app: 'openviking', target: 'overview', text: 'Обзор памяти.' },
+        ] };
+        const args = JSON.stringify(name === 'ui_demo_catalog' ? {} : { scenario: JSON.stringify(scenario) });
+        const id = `acceptance-${name}`;
+        yield { type: 'block-start', index: 0, blockType: 'tool-call' };
+        yield { type: 'tool-call-delta', index: 0, id, name, argumentsDelta: args };
+        yield { type: 'block-end', index: 0, block: { type: 'tool-call', id, name, arguments: args } };
+        yield { type: 'finish', reason: { kind: 'tool-calls' } };
+        return;
+      }
+    }
     if (prompt === 'LIFECYCLE_HOLD') {
       const { setTimeout } = await import('node:timers/promises');
       await setTimeout(60000, undefined, { signal: options.signal });

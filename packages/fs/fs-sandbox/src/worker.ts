@@ -64,11 +64,13 @@ export class FilesystemWorker {
     signal?.throwIfAborted()
     const controller = new AbortController()
     const abort = (): void => { controller.abort() }
-    const confined = this.ctx.sandbox.confine([
+    const confined = await this.ctx.sandbox.confine([
       process.execPath, '--input-type=module', '-e', filesystemWorkerSource,
       import.meta.resolve('@deepseek-ai/cordis'), import.meta.resolve('@deepseek-ai/dsh-fs-local'),
       JSON.stringify({ cwd: policy.workspace, diffBasisMaxBytes: this.diffBasisMaxBytes }),
     ], { mode: 'workspace-write', workspaceRoot: policy.workspace })
+    signal?.throwIfAborted()
+    if (this.disposed) throw new FsError('filesystem worker disposed', 'FS_SANDBOX_DENIED')
     if (confined.enforcement !== 'full') throw new FsError('full filesystem isolation unavailable', 'FS_SANDBOX_DENIED')
     const command = confined.argv[0]
     if (command === undefined) throw new Error('empty confinement command')

@@ -39,6 +39,9 @@
       "path": "../../subprocess/subprocess"
     },
     {
+      "path": "../../util/lazy-require"
+    },
+    {
       "path": "../../util/launch-environment"
     }
   ]

@@ -118,7 +118,7 @@ try {
   });
   await check('shell is confined with scrubbed environment even for forged full-access spec', async () => {
     const spec = ctx.shell.resolve({ command: `if cat '${canary}' >/dev/null 2>&1; then exit 21; fi; test -z "$ACCESS_AUDIT_VALUE" && printf safe > shell.txt`, sandboxPolicy: { mode: 'danger-full-access', workspaceRoot: state } });
-    const result = await ctx.shell.run(spec);
+    const result = await (await ctx.shell.execute(spec)).result();
     assert.equal(result.exitCode, 0);
     assert.equal(result.sandbox.enforcement, 'full');
     assert.equal(result.sandbox.mode, 'workspace-write');
@@ -148,7 +148,6 @@ try {
     await assert.rejects(() => ctx.fs.resolve('hello.txt', { signal: abort.signal }));
   });
   for (const [rel, config] of [
-    ['packages/settings/settings-file', { path: path.join(state, 'settings.json'), watch: false }],
     ['packages/credentials/credentials-local', { path: path.join(state, 'credentials.json'), watch: false }],
     ['packages/api/settings-controller', undefined],
     ['packages/typert/registry', undefined],

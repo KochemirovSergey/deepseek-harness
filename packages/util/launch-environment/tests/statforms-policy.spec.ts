@@ -26,6 +26,29 @@ async function policy(enabled: boolean) {
 }
 
 describe('restricted Statforms source', () => {
+  it('allows authenticated demonstration assets without opening arbitrary module routes', async () => {
+    const api = await policy(false)
+    for (const name of ['config.json', 'client.css', 'driver.css', 'adapter.js']) {
+      const path = `/demonstrations/${name}`
+      expect(api.instanceHttpAllowed('GET', path)).toBe(true)
+      expect(api.instanceHttpAllowed('HEAD', path)).toBe(true)
+      expect(api.instanceHttpAllowed('POST', path)).toBe(false)
+      expect(api.instanceHttpAllowed('GET', path, true)).toBe(false)
+      expect(api.instanceHttpAllowed('GET', `${path}/`)).toBe(false)
+    }
+    expect(api.instanceHttpAllowed('GET', '/demonstrations/private')).toBe(false)
+    expect(api.instanceHttpAllowed('GET', '/demonstrations/reports')).toBe(false)
+  })
+  it('permits job observation while continuing to deny job mutation', async () => {
+    const api = await policy(false)
+    for (const endpoint of ['job/list', 'job/follow', 'session/projections']) {
+      expect(() => { api.authorizeInstanceRemote(endpoint) }).not.toThrow()
+    }
+    for (const endpoint of ['job/kill', 'job/create', 'job/unknown']) {
+      expect(() => { api.authorizeInstanceRemote(endpoint) }).toThrow()
+      expect(api.instanceHttpAllowed('POST', `/api/${endpoint}`)).toBe(false)
+    }
+  })
   it('denies source routes and direct operation owners by default', async () => {
     const api = await policy(false)
     expect(api.instanceHttpAllowed('POST', '/statforms-data/raw/snapshot')).toBe(false)

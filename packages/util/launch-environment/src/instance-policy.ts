@@ -122,6 +122,7 @@ export function denyRestricted(operation: string): void {
 const REMOTE_OPERATIONS = new Set([
   'session/list', 'session/search', 'session/create', 'session/rename', 'session/fork',
   'session/prompt', 'session/attachment', 'session/updateQueue', 'session/cancel',
+  'job/list', 'job/follow', 'session/projections',
   'session/page', 'session/follow', 'session/control', 'session/modelCatalog',
   'workspace/follow', 'workspace/archiveSession', 'session/canOpenWorkspacePath', 'session/workspaceDesktop', 'session/capabilities',
   'workspaceFiles/stat', 'workspaceFiles/read', 'workspaceFiles/readBytes',
@@ -157,6 +158,7 @@ export function instanceHttpAllowed(method: string, pathname: string, upgrade = 
   if (method === 'GET' || method === 'HEAD') {
     return pathname === '/' || pathname === '/favicon.ico'
       || pathname.startsWith('/assets/') || pathname.startsWith('/plugins/')
+      || ['/demonstrations/config.json', '/demonstrations/client.css', '/demonstrations/driver.css', '/demonstrations/adapter.js'].includes(pathname)
       || pathname === '/api/file'
   }
   if (method !== 'POST') return false

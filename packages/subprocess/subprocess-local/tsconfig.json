@@ -24,6 +24,9 @@
       "path": "../../util/timeout"
     },
     {
+      "path": "../../util/lazy-require"
+    },
+    {
       "path": "../../util/launch-environment"
     }
   ]

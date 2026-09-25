@@ -51,7 +51,7 @@ export async function publishWorkspaceAttachment(
   signal?.throwIfAborted()
   const sandbox = ctx.get('sandbox')
   if (sandbox === undefined) throw new Error('attachment copy requires a sandbox provider')
-  const confined = sandbox.confine([
+  const confined = await sandbox.confine([
     process.execPath, '--input-type=module', '-e', publisher, workspaceAttachmentPath(ref),
   ], { mode: 'workspace-write', workspaceRoot: policy.workspace })
   if (confined.enforcement !== 'full') throw new Error('attachment copy requires full filesystem isolation')

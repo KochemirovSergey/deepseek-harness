@@ -36,6 +36,9 @@
       "path": "../../typert/protocol"
     },
     {
+      "path": "../../workspace/workspace"
+    },
+    {
       "path": "../../util/launch-environment"
     }
   ]

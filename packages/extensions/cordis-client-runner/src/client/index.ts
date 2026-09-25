@@ -185,10 +185,11 @@ export const inject = ['loader', 'modules', 'slots', 'remote', 'remote.dynamicCo
  * Client plugin body: build the runner and subscribe the dispatch family.
  * @param ctx - client root context.
  */
-export function apply(ctx: Context): void {
+export function apply(ctx: Context, config?: { instanceCapabilities?: { restricted: boolean } }): void {
   provideClientTimer(ctx)
   const inspect = new ClientCordisInspectRegistry({
     sync: async (providers) => {
+      if (config?.instanceCapabilities?.restricted === true) return
       const answered = await ctx.remote.dynamicCordisRunner.syncInspectManifest(providers)
       if (!answered.ok) throw new Error(`${answered.error.code}: ${answered.error.message}`)
     },
