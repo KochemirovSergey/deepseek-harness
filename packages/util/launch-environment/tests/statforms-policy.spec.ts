@@ -39,6 +39,19 @@ describe('restricted Statforms source', () => {
     expect(api.instanceHttpAllowed('GET', '/demonstrations/private')).toBe(false)
     expect(api.instanceHttpAllowed('GET', '/demonstrations/reports')).toBe(false)
   })
+  it('admits only the reviewed demonstration browser messages', async () => {
+    const api = await policy(false)
+    for (const action of ['hello', 'poll', 'claim', 'bye', 'reply']) {
+      const path = `/api/platform-demonstrations/${action}`
+      expect(api.instanceHttpAllowed('POST', path)).toBe(true)
+      for (const method of ['GET', 'HEAD', 'PUT', 'DELETE']) expect(api.instanceHttpAllowed(method, path)).toBe(false)
+      expect(api.instanceHttpAllowed('POST', path, true)).toBe(false)
+      expect(api.instanceHttpAllowed('POST', `${path}/`)).toBe(false)
+    }
+    for (const path of ['/api/platform-demonstrations', '/api/platform-demonstrations/execute', '/api/platform-demonstrations/hello/extra', '/api/settings/set', '/api/job/kill']) {
+      expect(api.instanceHttpAllowed('POST', path)).toBe(false)
+    }
+  })
   it('permits job observation while continuing to deny job mutation', async () => {
     const api = await policy(false)
     for (const endpoint of ['job/list', 'job/follow', 'session/projections']) {

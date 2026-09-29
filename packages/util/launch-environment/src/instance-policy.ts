@@ -162,6 +162,10 @@ export function instanceHttpAllowed(method: string, pathname: string, upgrade = 
       || pathname === '/api/file'
   }
   if (method !== 'POST') return false
+  // Browser discovery carries only ephemeral leases and read-only UI snapshots.
+  if (pathname.startsWith('/api/platform-demonstrations/')) {
+    return ['hello', 'poll', 'claim', 'bye', 'reply'].includes(pathname.slice('/api/platform-demonstrations/'.length))
+  }
   if (instancePolicy.statforms === true && pathname.startsWith('/statforms-data/')) {
     return STATFORM_OPERATIONS.has(pathname.slice('/statforms-data/'.length))
   }
