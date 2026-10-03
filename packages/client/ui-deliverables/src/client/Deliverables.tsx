@@ -12,6 +12,7 @@ import { changesForClosing, presentedForClosing, type ChangesTurnData, type Pres
 import type { NS } from './locales.ts'
 import { changesSummaryUrl, type ChangesReviewCoordinates } from '../changes.ts'
 import { presentedFileUrl } from '../presented.ts'
+import { DownloadButton, type DownloadFile } from './DownloadFile.tsx'
 import { PresentedFileCard } from './PresentedFileCard.tsx'
 import css from './Deliverables.module.css'
 
@@ -21,6 +22,8 @@ const COLLAPSED_PRESENTED_COUNT = 4
 
 /** Summary reads, native-open callbacks, and shared gesture status supplied by the plugin. */
 export interface DeliverablesInjected {
+  nativeEnabled: boolean
+  downloadFile: DownloadFile
   hooks: {
     changesDiff: ObservableSnapshot<ReturnType<ChangesDiffStore['state']['getSnapshot']>>
     showCodeDiff: ObservableSnapshot<boolean>
@@ -66,7 +69,8 @@ export function DeliverablesTail(props: PropsRuntime<'conversation.chat.turnTail
  * @returns the closing turn's file rows.
  */
 export function Deliverables({
-  matched, openFile, t, sessionId, useSessions, openPresented, openChangesReview, usePresentedOpen, usePresentedHost,
+  nativeEnabled, downloadFile, matched, openFile, t, sessionId, useSessions, openPresented, openChangesReview,
+  usePresentedOpen, usePresentedHost,
   useChangesDiff, loadChangesDiff, useChangesSummary, reloadPresentedHost, loadChangesSummary, useShowCodeDiff, renderSlot,
 }: Pick<TurnTailOwnerProps, 'openFile'> & {
   matched: DeliverablesMatch
@@ -89,8 +93,8 @@ export function Deliverables({
     ? matched.presented.slice(0, COLLAPSED_PRESENTED_COUNT)
     : matched.presented
   useEffect(() => {
-    if (host === null) void reloadPresentedHost()
-  }, [host, reloadPresentedHost])
+    if (nativeEnabled && host === null) void reloadPresentedHost()
+  }, [nativeEnabled, host, reloadPresentedHost])
   return <>
     {changes !== null && <ChangedFiles changes={changes} cwd={cwd} t={t}
       sessionId={sessionId} useChangesDiff={useChangesDiff} loadChangesDiff={loadChangesDiff}
@@ -99,23 +103,25 @@ export function Deliverables({
       className={css.root}
       data-after-changes={changes !== null || undefined}
     >
-      {host === 'error' && <div className={css.hostStatus}>
+      {nativeEnabled && host === 'error' && <div className={css.hostStatus}>
         <span>{t('presented.hostError')}</span>
         <Button size="sm" onClick={() => { void reloadPresentedHost() }}>{t('presented.retry')}</Button>
       </div>}
-      {host !== null && host !== 'error' && !host.available && <span className={css.hostStatus}>{t('presented.unavailable')}</span>}
+      {nativeEnabled && host !== null && host !== 'error' && !host.available && <span className={css.hostStatus}>{t('presented.unavailable')}</span>}
       <div className={css.presented} data-presented-files-row data-single={matched.presented.length === 1 ? true : undefined}>
         {presented.map(file => <PresentedFileCard key={`${file.seq}:${file.index}`} file={file} cwd={cwd}
           phase={states[presentedFileUrl(sessionId, file.seq, file.index)]}
           host={host === 'error' ? null : host} t={t}
           onPreview={() => { openFile(file.path) }}
-          actions={renderSlot('deliverables.file.actions', {
-            actionUrl: presentedFileUrl(sessionId, file.seq, file.index),
-            available: host !== null && host !== 'error' && host.available,
-            pending: states[presentedFileUrl(sessionId, file.seq, file.index)] === 'opening'
-              || states[presentedFileUrl(sessionId, file.seq, file.index)] === 'revealing',
-            onAction: (action, application) => openPresented(sessionId, file.seq, file.index, action, application),
-          })} />)}
+          actions={<>
+            <DownloadButton sessionId={sessionId} path={file.path} downloadFile={downloadFile} t={t} />
+            {renderSlot('deliverables.file.actions', {
+              actionUrl: presentedFileUrl(sessionId, file.seq, file.index),
+              available: host !== null && host !== 'error' && host.available,
+              pending: states[presentedFileUrl(sessionId, file.seq, file.index)] === 'opening'
+                || states[presentedFileUrl(sessionId, file.seq, file.index)] === 'revealing',
+              onAction: (action, application) => openPresented(sessionId, file.seq, file.index, action, application),
+            })}</>} />)}
       </div>
       {collapsible && <button type="button" className={css.toggle}
         aria-expanded={expanded}

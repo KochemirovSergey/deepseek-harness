@@ -3289,6 +3289,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     slotInject: '',
     declaredBy: 'an entry in \'sidebar.right.pane.tab\' (client-ui-sidebar-documentpreview), so it exists while that entry is mounted',
     occupants: [
+      'client-ui-deliverables DocumentDownload id \'download-original\'',
       'client-ui-open-in-app OpenPathAction id \'open-in-app\'',
     ],
     replaceRisk: 'none',

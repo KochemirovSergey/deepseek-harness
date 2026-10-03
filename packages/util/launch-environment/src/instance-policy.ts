@@ -125,6 +125,7 @@ const REMOTE_OPERATIONS = new Set([
   'job/list', 'job/follow', 'session/projections',
   'session/page', 'session/follow', 'session/control', 'session/modelCatalog',
   'workspace/follow', 'workspace/archiveSession', 'session/canOpenWorkspacePath', 'session/workspaceDesktop', 'session/capabilities',
+  'officeToPdf/generation', 'officeToPdf/render',
   'workspaceFiles/stat', 'workspaceFiles/read', 'workspaceFiles/readBytes',
   'workspaceFiles/readAll', 'workspaceFiles/readRelated', 'workspaceFiles/list', 'workspaceFiles/changes',
   'fileReferences/list', 'skills/list', 'fileUploads/upload', 'commands/list', 'settings/describe',

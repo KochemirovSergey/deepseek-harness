@@ -5,6 +5,9 @@ export const NS = 'deliverables'
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
+  'download.action': '下载',
+  'download.pending': '正在下载…',
+  'download.failed': '无法下载。文件可能不可用、访问被拒绝或超过大小限制。请重试。',
   'presented.nativeUnavailable': '此文件没有可用的主机路径，请在侧边栏预览',
   'presented.revealError': '无法在文件管理器中显示，请重试',
   'presented.directoryError': '无法打开所在文件夹，请重试',
@@ -68,6 +71,9 @@ export const zh = {
 
 /** English dictionary (same key set). */
 export const en: Record<DeliverablesKey, string> = {
+  'download.action': 'Download',
+  'download.pending': 'Downloading…',
+  'download.failed': 'Download failed. The file may be unavailable, access denied, or over the size limit. Try again.',
   'presented.nativeUnavailable': 'This file has no available Host path. Preview it in the sidebar.',
   'presented.revealError': 'Could not show in file manager. Try again.',
   'presented.directoryError': 'Could not open containing folder. Try again.',

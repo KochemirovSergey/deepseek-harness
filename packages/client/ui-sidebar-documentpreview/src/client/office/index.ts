@@ -75,6 +75,7 @@ export function apply(ctx: Context, config: Config['office']): void {
       if (!result.ok && result.error.code === 'document-render/failed') {
         throw new Error(t(conversionErrorKey(result.error.details.reason)), { cause: result.error })
       }
+      if (!result.ok && isAccessDenied(result.error)) throw new Error(t('denied'), { cause: result.error })
       return result
     }
     const createCache = () => new OfficePreviewCache(
@@ -95,7 +96,7 @@ export function apply(ctx: Context, config: Config['office']): void {
       async (signal) => {
         const result = await scope.remote.officeToPdf.generation(signal)
         signal.throwIfAborted()
-        if (!result.ok) throw new Error(t('unavailable'), { cause: result.error })
+        if (!result.ok) throw new Error(t(isAccessDenied(result.error) ? 'denied' : 'unavailable'), { cause: result.error })
         return result
       }, () => new Error(t('busy')),
     )
@@ -128,4 +129,9 @@ function conversionErrorKey(code: string): OfficePreviewKey {
     case 'source-changed': return 'changed'
     default: return 'failed'
   }
+}
+
+/** HTTP transport preserves a denied route as a typed carrier failure. */
+function isAccessDenied(error: { code: string; message: string }): boolean {
+  return /(?:denied|forbidden)/i.test(error.code) || /HTTP 403\b/.test(error.message)
 }

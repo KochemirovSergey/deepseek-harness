@@ -52,6 +52,18 @@ describe('restricted Statforms source', () => {
       expect(api.instanceHttpAllowed('POST', path)).toBe(false)
     }
   })
+  it('permits bounded Office preview but no other Office operations', async () => {
+    const api = await policy(false)
+    for (const endpoint of ['officeToPdf/generation', 'officeToPdf/render']) {
+      expect(() => api.authorizeInstanceRemote(endpoint)).not.toThrow()
+      expect(api.instanceHttpAllowed('POST', `/api/${endpoint}`)).toBe(true)
+      expect(api.instanceHttpAllowed('GET', `/api/${endpoint}`)).toBe(false)
+    }
+    for (const endpoint of ['officeToPdf/configure', 'officeToPdf/unknown']) {
+      expect(() => api.authorizeInstanceRemote(endpoint)).toThrow()
+      expect(api.instanceHttpAllowed('POST', `/api/${endpoint}`)).toBe(false)
+    }
+  })
   it('permits job observation while continuing to deny job mutation', async () => {
     const api = await policy(false)
     for (const endpoint of ['job/list', 'job/follow', 'session/projections']) {

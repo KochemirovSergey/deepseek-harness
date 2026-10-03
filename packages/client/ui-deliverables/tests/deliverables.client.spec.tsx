@@ -50,6 +50,8 @@ function openProps(controller = new PresentedOpenController(), summaries = new C
     loadChangesDiff: vi.fn((...args: Parameters<ChangesDiffStore['load']>) => diffs.load(...args)),
     useShowCodeDiff: <T,>(select: (value: boolean) => T): T => select(true),
     useSessions: <T,>(select: (state: SessionListState) => T): T => select(sessions),
+    nativeEnabled: true,
+    downloadFile: vi.fn().mockResolvedValue(undefined),
     reloadPresentedHost: vi.fn(() => controller.loadHost()),
     useChangesSummary: <T,>(select: (state: ReturnType<typeof summaries.state.getSnapshot>) => T): T =>
       select(summaries.state.getSnapshot()),
@@ -745,6 +747,7 @@ describe('plugin registration', () => {
       session,
     } as never)
     ctx.provide('remote.session', session as never)
+    ctx.provide('remote.workspaceFiles', { readBytes: vi.fn() } as never)
     ctx.provide('configForms', { developerTools: { enabled: createSnapshotStore(true) }, get: () => stubConfigForm().scope } as never)
     await ctx.plugin({ inject: localeInject, apply: applyLocale }).await()
 
@@ -998,4 +1001,16 @@ it('contributes file artifacts to the tail list only for turns with deliveries',
   const withFile = tailOwner({ produced: [], presented: [{ path: 'report.md', seq: 2, index: 0 }] }, 3)
   view.rerender(<DeliverablesTail {...props} {...withFile} />)
   expect(view.getByText('report.md')).toBeTruthy()
+})
+
+it('keeps restricted file downloads independent of unavailable native desktop metadata', () => {
+  const props = openProps()
+  const downloadFile = vi.fn().mockResolvedValue(undefined)
+  const view = render(<Deliverables {...props} nativeEnabled={false} downloadFile={downloadFile}
+    matched={{ changes: null, presented: [{ path: 'report.docx', seq: 2, index: 0 }] }}
+    openFile={vi.fn()} sessionId={SessionId('restricted')} t={makeTranslate(en)} />)
+  expect(props.reloadPresentedHost).not.toHaveBeenCalled()
+  fireEvent.click(view.getByRole('button', { name: 'Download' }))
+  expect(downloadFile).toHaveBeenCalledWith('restricted', 'report.docx', expect.any(AbortSignal))
+  expect(view.queryByText(en['presented.hostError'])).toBeNull()
 })

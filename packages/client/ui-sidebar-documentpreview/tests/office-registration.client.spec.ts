@@ -278,3 +278,12 @@ it('joins a retired request during reset without retaining its late PDF in the n
     await closing
   } finally { completed.resolve(converted); await resetting; await h.close() }
 })
+
+it.each(['render', 'rendererGeneration'] as const)('reports access denial from %s without installation guidance', async method => {
+  const h = await harness()
+  try {
+    const failure = new RemoteError('gateway/internal', 'transport failure: HTTP 403', {})
+    h[method].mockResolvedValueOnce({ ok: false, error: failure })
+    await expect(h.read()).rejects.toMatchObject({ message: en.denied, cause: failure })
+  } finally { await h.close() }
+})

@@ -516,8 +516,8 @@ it('cleans styles from a materialized factory superseded before its entry is cre
   expect(document.querySelectorAll('style[data-plugin=a]')).toHaveLength(1)
 })
 
-it('passes restricted presentation capabilities to the managed workspace plugin', async () => {
-  const id = '@deepseek-ai/dsh-client-ui-workspace'
+it.each(['@deepseek-ai/dsh-client-ui-workspace', '@deepseek-ai/dsh-client-ui-deliverables'])(
+  'passes restricted presentation capabilities to %s', async id => {
   let received: unknown
   const initial = { ...graph(row(id)), capabilities: { restricted: true as const, model: 'mock-sol' } }
   await bench(initial, { [id]: () => ({ apply: (_ctx: Context, config: unknown) => { received = config } }) })

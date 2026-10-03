@@ -171,6 +171,7 @@ export class ClientEntries {
       '@deepseek-ai/dsh-client-ui-settings-plugin-inventory', '@deepseek-ai/dsh-client-ui-workspace',
       '@deepseek-ai/dsh-client-ui-permission-presets', '@deepseek-ai/dsh-client-ui-agent-preset',
       '@deepseek-ai/dsh-client-ui-model-selection', '@deepseek-ai/dsh-client-ui-open-in-app',
+      '@deepseek-ai/dsh-client-ui-deliverables',
       '@deepseek-ai/dsh-client-ui-plugin-manager', '@deepseek-ai/dsh-client-ui-settings-web-search',
       '@deepseek-ai/dsh-client-ui-cordis', '@deepseek-ai/dsh-cordis-client-runner',
     ].includes(id)

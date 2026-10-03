@@ -9,6 +9,10 @@
  * surface; the owning view renders an empty list and inert prose at zero cost.
  */
 import './file-actions.ts'
+import type {} from '@deepseek-ai/dsh-api-workspace-files/remote'
+import type {} from '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/client'
+import { createDownloadFile } from './download.ts'
+import { DocumentDownload } from './DownloadFile.tsx'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-client-connection/client'
@@ -40,13 +44,20 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 /** Required services for the tail-slot and tab-type registrations and their dictionaries. */
-export const inject = ['slots', 'locale', 'uiConversation', 'remote', 'remote.session', 'sidebarRightTabs', 'sidebarRight', 'configForms']
+export const inject = ['slots', 'locale', 'uiConversation', 'remote', 'remote.session', 'remote.workspaceFiles', 'sidebarRightTabs', 'sidebarRight', 'configForms']
 
 /**
  * Client plugin body: register the dictionaries, the turn-tail entry, and the comparison tab type.
  * @param ctx - client root context.
+ * @param config - server-owned presentation capabilities; restricted instances omit native desktop queries.
  */
-export function apply(ctx: ClientContext): void {
+export function apply(ctx: ClientContext, config?: { instanceCapabilities?: { restricted: boolean } }): void {
+  const nativeEnabled = config?.instanceCapabilities?.restricted !== true
+  const downloadFile = createDownloadFile(ctx.remote)
+  ctx.slots.inject('sidebar.right.tab.document.actions', () => ctx.slots.register({
+    name: 'sidebar.right.tab.document.actions', id: 'download-original', locale: NS,
+    inject: () => ({ downloadFile }),
+  }, DocumentDownload))
   const opener = new PresentedOpenController()
   const summaries = new ChangesSummaryStore()
   const diffs = new ChangesDiffStore()
@@ -66,10 +77,11 @@ export function apply(ctx: ClientContext): void {
       locale: NS,
       children: { 'deliverables.file.actions': { kind: 'list', scope: 'session' } },
       inject: (): DeliverablesInjected => ({
+        nativeEnabled, downloadFile,
         hooks: { changesDiff: diffs.state, presentedOpen: opener.state, presentedHost: opener.host, changesSummary: summaries.state,
           showCodeDiff: ctx.configForms.developerTools.enabled },
         loadChangesDiff: (sessionId, seq, index) => diffs.load(sessionId, seq, index),
-        reloadPresentedHost: () => opener.loadHost(),
+        reloadPresentedHost: () => nativeEnabled ? opener.loadHost() : Promise.resolve(),
         loadChangesSummary: (sessionId, seq) => summaries.load(sessionId, seq),
         openPresented: (sessionId, seq, index, action, application) => opener.open(sessionId, seq, index, action, application),
         openChanged: (sessionId, seq, index, action, application) => opener.openChanged(sessionId, seq, index, action, application),
@@ -92,7 +104,7 @@ export function apply(ctx: ClientContext): void {
         hooks: { changesSummary: summaries.state, changesDiff: diffs.state, presentedOpen: opener.state, presentedHost: opener.host },
         loadChangesSummary: (sessionId, seq) => summaries.load(sessionId, seq),
         loadChangesDiff: (sessionId, seq, index) => diffs.load(sessionId, seq, index),
-        reloadPresentedHost: () => opener.loadHost(),
+        reloadPresentedHost: () => nativeEnabled ? opener.loadHost() : Promise.resolve(),
         openChanged: (sessionId, seq, index, action, application) => opener.openChanged(sessionId, seq, index, action, application),
       }),
     },

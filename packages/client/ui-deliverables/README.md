@@ -36,6 +36,8 @@ The Web `standard`, `ptc`, and `cordis` presets expose `present` for final files
 
 The `present` tool row retains its document icon and recorded result across progress, success, failure, and interruption. Native actions share pending state and publish progress or retryable errors on the card. Successful open or reveal feedback stays visible for five seconds, fades over 200ms, then restores the file description; failures remain visible until another attempt. Desktop metadata is loaded when cards mount and invalidated on connection replacement. Without a Host desktop, cards retain Sidebar preview but omit native controls; failed metadata reads offer Retry. Delivery cards and change review expose `deliverables.file.actions` and `deliverables.review.file.actions`, supplied by [ui-open-in-app](../ui-open-in-app/README.md). Association GET requests and native POST actions both validate the recorded file coordinates and Session filesystem mapping before using the Host desktop.
 
+Delivery cards and document preview headers offer Download for the original file. The action uses the authenticated `workspaceFiles.readBytes` full-file operation and its configured byte limit; it preserves the filename and bytes without Office conversion. Failed, oversized, partial, or cancelled reads do not create a download. Restricted instances omit native desktop metadata requests while retaining preview and download.
+
 ### The changed-files card
 
 Developer tools must be enabled to show this card or request its summary. Turning the preference off removes the card immediately while explicit delivery cards, inline file links, and recorded workspace changes remain available.
