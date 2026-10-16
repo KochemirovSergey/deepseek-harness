@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-host-webserver",
   "description": "Web route-registration plugin: HTTP and upgrade routes, index transform taps, and static dist fallback; knows no harness concepts",
-  "version": "0.1.7-rc.1",
+  "version": "0.2.0-rc.2",
   "publishConfig": {
     "access": "public"
   },
@@ -28,7 +28,7 @@
   "license": "MIT",
   "peerDependencies": {
     "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-launch-environment": "workspace:^"
+    "@deepseek-ai/dsh-launch-environment": "workspace:*"
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "workspace:~",
@@ -39,6 +39,6 @@
     "@deepseek-ai/cordis": "workspace:~",
     "@types/compression": "^1.8.1",
     "@types/negotiator": "^0.6.5",
-    "@deepseek-ai/dsh-launch-environment": "workspace:^"
+    "@deepseek-ai/dsh-launch-environment": "workspace:*"
   }
 }
