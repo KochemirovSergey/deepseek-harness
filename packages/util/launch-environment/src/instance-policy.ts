@@ -128,7 +128,7 @@ const REMOTE_OPERATIONS = new Set([
   'officeToPdf/generation', 'officeToPdf/render',
   'workspaceFiles/stat', 'workspaceFiles/read', 'workspaceFiles/readBytes',
   'workspaceFiles/readAll', 'workspaceFiles/readRelated', 'workspaceFiles/list', 'workspaceFiles/changes',
-  'fileReferences/list', 'skills/list', 'fileUploads/upload', 'commands/list', 'settings/describe',
+  'fileReferences/list', 'skills/list', 'fileUploads/upload', 'commands/list', 'settings/describe', 'settings/access',
 ])
 
 const STATFORM_OPERATIONS = new Set([

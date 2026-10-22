@@ -43,7 +43,10 @@ function ok<T>(value: T) {
 
 /** The permission controller over a real mirror and one scripted context. */
 function permissionController(api: object) {
-  const ctx = { remote: { settings: api } } as never
+  const ctx = { remote: { settings: {
+    access: async () => ({ ok: true as const, value: { canRead: true, canWrite: true, reason: null } }),
+    ...api,
+  } } } as never
   const mirror = new SettingsDescribeMirror(ctx)
   return { mirror, controller: new PermissionPresetSettingsController(mirror, ctx, directory) }
 }
@@ -164,7 +167,10 @@ describe('permission settings store', () => {
   it('hides the row in a remote browser instead of loading forever', async () => {
     const describeCall = vi.fn()
     const mutate = vi.fn()
-    const ctx = { remote: { settings: { describe: describeCall, mutate } } } as never
+    const ctx = { remote: { settings: {
+      access: async () => ({ ok: true as const, value: { canRead: true, canWrite: true, reason: null } }),
+      describe: describeCall, mutate,
+    } } } as never
     const mirror = new SettingsDescribeMirror(ctx, 'memory')
     const controller = new PermissionPresetSettingsController(mirror, ctx, directory)
     await controller.load()
@@ -242,7 +248,10 @@ describe('permission settings store', () => {
 })
 
 it('waits for the catalog, follows catalog changes, and contains invalid defaults', async () => {
-  const ctx = { remote: { settings: { describe: async () => ok({ writable: true, hasDocument: true, namespaces: [view('read-only')] }) } } } as never
+  const ctx = { remote: { settings: {
+    access: async () => ({ ok: true as const, value: { canRead: true, canWrite: true, reason: null } }),
+    describe: async () => ok({ writable: true, hasDocument: true, namespaces: [view('read-only')] }),
+  } } } as never
   const mirror = new SettingsDescribeMirror(ctx)
   const store = createSnapshotStore<{ value: typeof catalog | null }>({ value: null })
   const controller = new PermissionPresetSettingsController(mirror, ctx, { store, load: async () => catalog })

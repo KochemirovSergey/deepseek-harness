@@ -112,7 +112,7 @@ function harness(options: {
       )),
       discoverModels: () => Promise.resolve(remoteOk([])),
     },
-    settings: {
+    settings: { access: async () => ({ ok: true as const, value: { canRead: true, canWrite: true, reason: null } }),
       describe: () => Promise.resolve(remoteOk({
         writable: options.settingsWritable ?? true,
         hasDocument: false,

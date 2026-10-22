@@ -6,8 +6,8 @@ import { expect, it, onTestFinished } from 'vitest'
 import { launchWebScaffold } from './scaffold.ts'
 import { openSettings, newEnglishPage } from './support.ts'
 
-it('persists developer tools in the Host settings document and restores the accepted choice', async () => {
-  const scaffold = await launchWebScaffold()
+it.each([undefined, 'settings.dsh.localhost'])('persists developer tools and loads Models through %s', async (remoteAuthority) => {
+  const scaffold = await launchWebScaffold(remoteAuthority === undefined ? {} : { remoteAuthority })
   onTestFinished(() => scaffold.close())
   const browser = await chromium.launch()
   onTestFinished(() => browser.close())
@@ -36,4 +36,13 @@ it('persists developer tools in the Host settings document and restores the acce
   await scaffold.ctx.settings.update('ui-settings', { enabled: true })
   await expect.poll(() => setDefault.isEnabled()).toBe(true)
   expect(await section.getByRole('switch').count()).toBe(0)
+
+  await page.getByRole('button', { name: 'Models', exact: true }).click()
+  await page.getByRole('button', { name: 'Add model provider', exact: true }).waitFor()
+  expect(await page.getByText('Loading the provider directory failed', { exact: false }).count()).toBe(0)
+  expect(await page.getByText('settings are unavailable in this browser', { exact: false }).count()).toBe(0)
+  // The page hostname must not expose the Host's native editor remotely.
+  if (remoteAuthority !== undefined) {
+    expect(await page.getByRole('button', { name: 'Open configuration file', exact: true }).count()).toBe(0)
+  }
 })

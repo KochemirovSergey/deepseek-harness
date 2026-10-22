@@ -135,7 +135,7 @@ describe('SettingsDocumentAction', () => {
       ok: true as const, value: { opened: true as const },
     }))
     const controller = derivedDocumentStore({
-      settings: {
+      settings: { access: async () => ({ ok: true as const, value: { canRead: true, canWrite: true, reason: null } }),
         describe: vi.fn(() => Promise.resolve({
           ok: true as const,
           value: { writable: true, hasDocument: true, namespaces: [] },
@@ -158,7 +158,10 @@ describe('SettingsDocumentAction', () => {
     const describe = vi.fn()
       .mockResolvedValueOnce({ ok: true as const, value: { writable: true, hasDocument: false, namespaces: [] } })
       .mockResolvedValueOnce({ ok: true as const, value: { writable: true, hasDocument: true, namespaces: [] } })
-    const ctx = { remote: { settings: { describe, openSettingsDocument: vi.fn() } } } as never
+    const ctx = { remote: { settings: {
+      access: async () => ({ ok: true as const, value: { canRead: true, canWrite: true, reason: null } }),
+      describe, openSettingsDocument: vi.fn(),
+    } } } as never
     const mirror = new SettingsDescribeMirror(ctx)
     const controller = new SettingsDocumentStore(ctx, mirror)
     const first = render(<SettingsDocumentAction
@@ -187,7 +190,7 @@ describe('SettingsDocumentAction', () => {
 
   it('keeps the action available and reports a native-open failure', async () => {
     const controller = derivedDocumentStore({
-      settings: {
+      settings: { access: async () => ({ ok: true as const, value: { canRead: true, canWrite: true, reason: null } }),
         describe: vi.fn(() => Promise.resolve({
           ok: true as const,
           value: { writable: true, hasDocument: true, namespaces: [] },

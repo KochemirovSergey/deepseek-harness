@@ -30,7 +30,7 @@ async function bench(served?: string[]) {
     : { ok: true, value: { writable: true, hasDocument: true, namespaces: served.map(ns => view(ns)) } }))
   const remote = new TestRemote(ctx, {
     session: { modelCatalog: models },
-    settings: { describe: describeSettings },
+    settings: { access: async () => ({ ok: true, value: { canRead: true, canWrite: true, reason: null } }), describe: describeSettings },
   })
   await ctx.plugin({ inject: [...settingsInject], apply: settingsApply }).await()
   return { ctx, slots: ctx.get('slots') as SlotRegistry, describeSettings, models, remote }

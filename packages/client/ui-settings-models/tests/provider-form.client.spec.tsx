@@ -128,7 +128,7 @@ function scriptedFace(options: {
       ))),
       discoverModels: discover,
     },
-    settings: {
+    settings: { access: async () => ({ ok: true as const, value: { canRead: true, canWrite: true, reason: null } }),
       describe: vi.fn(() => Promise.resolve(remoteOk({ writable: true, namespaces: [namespace] }))),
       mutate,
     },

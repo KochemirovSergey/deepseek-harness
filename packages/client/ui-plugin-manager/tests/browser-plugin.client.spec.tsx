@@ -33,7 +33,10 @@ async function bench() {
   new LocaleHolder(ctx)
   const list = vi.fn(() => Promise.resolve({ ok: true as const, value: { entries: [], managementAvailable: true } }))
   const remote = new TestRemote(ctx, {
-    settings: { describe: vi.fn(async () => ({ ok: true as const, value: { writable: true, hasDocument: true, namespaces: [] } })) },
+    settings: {
+      access: async () => ({ ok: true, value: { canRead: true, canWrite: true, reason: null } }),
+      describe: vi.fn(async () => ({ ok: true as const, value: { writable: true, hasDocument: true, namespaces: [] } })),
+    },
     pluginInventory: { list },
     pluginRegistryProbe: { fastest: vi.fn(async () => ({ ok: true as const, value: null })) },
     pluginManager: {

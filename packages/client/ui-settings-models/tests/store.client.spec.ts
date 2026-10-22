@@ -1,5 +1,5 @@
 /** Page-store join: directory × namespaces × credentials, with last-good rows on failure. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { RpcResponse } from '@deepseek-ai/dsh-api-remotes/client'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-mirror.ts'
@@ -119,7 +119,7 @@ function api(overrides: {
         .map(({ active: _active, ...row }) => row)),
       discoverModels: () => Promise.resolve(remoteOk([])),
     },
-    settings: {
+    settings: { access: async () => ({ ok: true as const, value: { canRead: true, canWrite: true, reason: null } }),
       describe: overrides.describeSettings
         ?? (() => Promise.resolve(remoteOk({ writable: true, hasDocument: false, namespaces: NAMESPACES }))),
       mutate: () => Promise.resolve(remoteFail('the store spec issues no writes')),
@@ -141,6 +141,41 @@ function api(overrides: {
 }
 
 describe('ModelsSettingsStore', () => {
+  it('does not read the provider directory before settings access settles', async () => {
+    const { ctx, face, mirror } = api()
+    const gate = Promise.withResolvers<Awaited<ReturnType<typeof face.settings.access>>>()
+    vi.spyOn(face.settings, 'access').mockReturnValue(gate.promise)
+    const providers = vi.spyOn(face.llm, 'listProviders')
+    const configurable = vi.spyOn(face.llm, 'listConfigurableProviders')
+    const store = new ModelsSettingsStore(ctx, settingsSchema, mirror)
+    const loading = store.load()
+    await vi.waitFor(() => { expect(face.settings.access).toHaveBeenCalledOnce() })
+    expect(providers).not.toHaveBeenCalled()
+    expect(configurable).not.toHaveBeenCalled()
+    gate.resolve({ ok: true, value: { canRead: true, canWrite: true, reason: null } })
+    await loading
+    expect(providers).toHaveBeenCalledOnce()
+    expect(store.store.getSnapshot().status).toBe('ready')
+  })
+
+  it('clears previously editable rows after access can no longer be verified', async () => {
+    const { ctx, face, mirror } = api()
+    const store = new ModelsSettingsStore(ctx, settingsSchema, mirror)
+    await store.load()
+    expect(store.store.getSnapshot().rows).not.toHaveLength(0)
+    const providers = vi.spyOn(face.llm, 'listProviders')
+    const credentials = vi.spyOn(face.credentials, 'describe')
+    vi.spyOn(face.settings, 'access').mockRejectedValue(new Error('Request failed: HTTP 401'))
+    await mirror.reset()
+    await store.load()
+    expect(store.store.getSnapshot()).toMatchObject({
+      status: 'error', accessError: 'authentication-required', writable: false, rows: [],
+    })
+    expect(store.store.getSnapshot().namespaces.size).toBe(0)
+    expect(providers).not.toHaveBeenCalled()
+    expect(credentials).not.toHaveBeenCalled()
+  })
+
   it('joins rows with configured, removable, and credential state', async () => {
     const { ctx, mirror, seenRefs } = api()
     const store = new ModelsSettingsStore(ctx, settingsSchema, mirror)
@@ -225,6 +260,7 @@ describe('ModelsSettingsStore', () => {
     })
     const store = new ModelsSettingsStore(ctx, settingsSchema, mirror)
     const first = store.load()
+    await vi.waitFor(() => { expect(call).toBe(1) })
     const second = store.load()
     release?.()
     await Promise.all([first, second])
@@ -304,7 +340,7 @@ describe('edge joins', () => {
     await store.load()
     expect(store.store.getSnapshot()).toMatchObject({
       status: 'error',
-      error: 'settings are unavailable in this browser',
+      error: '', accessError: 'access-check-failed', writable: false, rows: [],
     })
   })
 
@@ -323,7 +359,7 @@ describe('edge joins', () => {
     await mirror.load()
     expect(mirror.getSnapshot().error).toBe('settings refresh down')
     await store.load()
-    expect(store.store.getSnapshot()).toMatchObject({ status: 'ready', error: null })
+    expect(store.store.getSnapshot()).toMatchObject({ status: 'ready', error: null, writable: false })
     expect(store.store.getSnapshot().rows).toHaveLength(4)
   })
 
@@ -343,6 +379,7 @@ describe('edge joins', () => {
     })
     const store = new ModelsSettingsStore(ctx, settingsSchema, mirror)
     const first = store.load()
+    await vi.waitFor(() => { expect(call).toBe(1) })
     const second = store.load()
     await second
     release?.()

@@ -1,4 +1,4 @@
-import { denyRestricted } from '@deepseek-ai/dsh-launch-environment'
+import { denyRestricted, instancePolicy } from '@deepseek-ai/dsh-launch-environment'
 /**
  * Host Remote owner for the configuration surfaces over the settings-domain
  * seams. Two namespaces: `settings`, the redacted reads and writes of
@@ -20,7 +20,7 @@ import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typer
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import { z } from 'zod'
 import { CredentialsController } from './credentials.ts'
-import type { SettingsDocumentOpenValue } from './types.ts'
+import type { SettingsAccessValue, SettingsDocumentOpenValue } from './types.ts'
 
 export { CredentialsController } from './credentials.ts'
 export type * from './types.ts'
@@ -87,6 +87,20 @@ export class SettingsController extends TypertRemoteService {
     super(ctx, 'settingsController', { namespace: 'settings' })
     this.openTextFile = internals.openTextFile ?? openNativeTextFile
     ctx.plugin(CredentialsController)
+  }
+
+  /**
+   * Report settings-page access after the carrier authenticates the caller.
+   * Deployment routing selects the instance; a browser hostname grants no rights.
+   * This report does not replace policy checks on individual operations.
+   * @returns page permissions without configuration values or credentials.
+   */
+  @Remote
+  access(): SettingsAccessValue {
+    if (instancePolicy !== undefined) return { canRead: false, canWrite: false, reason: 'restricted' }
+    const settings = this.ctx.get('settings')
+    if (settings === undefined) return { canRead: false, canWrite: false, reason: 'provider-unavailable' }
+    return { canRead: true, canWrite: settings.writable, reason: settings.writable ? null : 'read-only' }
   }
 
   /**

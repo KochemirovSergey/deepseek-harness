@@ -50,7 +50,10 @@ async function bench(isLoopback = true) {
     section[op.path[0]!] = op.value
     return Promise.resolve({ ok: true as const, value: namespace() })
   })
-  const events = new TestRemote(ctx, { settings: { describe, mutate } })
+  const events = new TestRemote(ctx, { settings: {
+    access: async () => ({ ok: true, value: { canRead: true, canWrite: true, reason: null } }),
+    describe, mutate,
+  } })
   events.$host = { home: undefined, isLoopback }
   await ctx.plugin({ inject: [...settingsInject], apply: settingsApply }).await()
   return {
@@ -153,7 +156,7 @@ describe('ui-theme apply', () => {
     await vi.waitFor(() => { expect(b.mutate).toHaveBeenCalledTimes(2) })
   })
 
-  it('loads Host settings at boot, refreshes its namespace, and keeps remote browsers process-local', async () => {
+  it('loads Host settings at boot, refreshes its namespace, and persists remote browser choices', async () => {
     const b = await bench()
     // The shared mirror read once at bench time; a Host-side change reaches it
     // through the document invalidation, exactly as production announces one.
@@ -180,10 +183,10 @@ describe('ui-theme apply', () => {
     declareItems(remote.slots)
     await remote.ctx.plugin({ inject: [...inject], apply }).await()
     const remoteTheme = remote.ctx.get('theme') as ThemeRuntime
+    await remote.ctx.configForms.describe().ensure()
     remoteTheme.setTheme('dark')
-    await Promise.resolve()
-    expect(remote.describe).not.toHaveBeenCalled()
-    expect(remote.mutate).not.toHaveBeenCalled()
+    await vi.waitFor(() => { expect(remote.mutate).toHaveBeenCalledOnce() })
+    expect(remote.describe).toHaveBeenCalledOnce()
   })
 
   it('activates before a slow settings refresh and converges when it settles', async () => {

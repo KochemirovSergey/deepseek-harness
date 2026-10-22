@@ -19,7 +19,10 @@ const directory = { store: createSnapshotStore({ value: catalog }), load: () => 
 
 /** Controller over a real mirror derived from the same scripted context. */
 function derivedController(remote: { settings: object }) {
-  const ctx = { remote } as never
+  const ctx = { remote: { ...remote, settings: {
+    access: async () => ({ ok: true as const, value: { canRead: true, canWrite: true, reason: null } }),
+    ...remote.settings,
+  } } } as never
   return new PermissionPresetSettingsController(new SettingsDescribeMirror(ctx), ctx, directory)
 }
 

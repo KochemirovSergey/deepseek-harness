@@ -316,10 +316,12 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
     const errorText = state.error ?? ''
     return (
       <div className={styles['section']}>
-        <p className={styles['error']}>{`${t('loadFailed')}: ${errorText}`}</p>
-        <button type="button" className={styles['secondaryButton']} onClick={() => { void controller.load() }}>
-          {t('retry')}
-        </button>
+        <p className={styles['error']}>{state.accessError === undefined ? `${t('loadFailed')}: ${errorText}` : t(state.accessError)}</p>
+        {state.accessError === 'restricted' || state.accessError === 'upgrade-required' || state.accessError === 'authentication-required' ? null : (
+          <button type="button" className={styles['secondaryButton']} onClick={() => { void controller.load() }}>
+            {t('retry')}
+          </button>
+        )}
       </div>
     )
   }

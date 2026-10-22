@@ -16,6 +16,7 @@ export const remoteDefaultResponses: RemoteTable = {
     // ui-workspace startup with no entries; first-use initialization is ineligible.
     'workspace/initializeDefault': ok(undefined),
     // ui-settings `mirror.ensure()` at apply and again on `connection/reset`.
+    'settings/access': ok({ canRead: true, canWrite: true, reason: null }),
     'settings/describe': ok({ writable: true, hasDocument: false, namespaces: [] }),
     // ui-model-selection `ModelDirectoryResolver` constructor.
     'session/modelCatalog': ok({

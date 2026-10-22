@@ -23,8 +23,14 @@ function described(namespaces: readonly string[], revision = 0) {
 async function bench(namespaces: readonly string[]) {
   const describeCall = vi.fn().mockResolvedValue(described(namespaces))
   const ctx = new Context()
-  new TestRemote(ctx, { settings: { describe: describeCall } })
-  const mirror = new SettingsDescribeMirror({ remote: { settings: { describe: describeCall } } } as never)
+  new TestRemote(ctx, { settings: {
+    access: async () => ({ ok: true as const, value: { canRead: true, canWrite: true, reason: null } }),
+    describe: describeCall,
+  } })
+  const mirror = new SettingsDescribeMirror({ remote: { settings: {
+    access: async () => ({ ok: true as const, value: { canRead: true, canWrite: true, reason: null } }),
+    describe: describeCall,
+  } } } as never)
   await ctx.plugin(ConfigForms, { mirror, schema: new SettingsSchemaService(ctx), persistence: 'host' }).await()
   return { ctx, mirror, describeCall }
 }

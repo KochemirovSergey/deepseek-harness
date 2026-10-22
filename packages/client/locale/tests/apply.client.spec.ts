@@ -38,7 +38,10 @@ async function bench(preference?: string) {
     revision += 1
     return { ok: true as const, value: namespace() }
   })
-  const events = new TestRemote(ctx, { settings: { describe, mutate } })
+  const events = new TestRemote(ctx, { settings: {
+    access: async () => ({ ok: true, value: { canRead: true, canWrite: true, reason: null } }),
+    describe, mutate,
+  } })
   await ctx.plugin({ inject: [...settingsInject], apply: settingsApply }).await()
   return {
     ctx, slots: ctx.get('slots') as SlotRegistry, describe, mutate, events,

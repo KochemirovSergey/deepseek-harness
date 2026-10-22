@@ -84,6 +84,7 @@ async function bench(options: {
   // The row reads `describe` to learn whether this browser may write at all,
   // and its default write is the one op this spec records.
   const settings = {
+    access: async () => ({ ok: true as const, value: { canRead: true, canWrite: true, reason: null } }),
     describe: () => Promise.resolve({
       ok: true as const,
       value: {

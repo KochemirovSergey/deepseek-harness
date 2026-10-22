@@ -13,7 +13,7 @@ import type {
 } from '@deepseek-ai/dsh-api-remotes/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { SettingsDescribeFace } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { SettingsDescribeFace, SettingsMirrorSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { SettingsSchemaOperations } from './schema-operations.ts'
 
 /**
@@ -97,6 +97,8 @@ export interface ModelsSettingsState {
   status: 'idle' | 'loading' | 'ready' | 'error'
   /** Whole-load failure text; row-level write failures stay in the editor. */
   error: string | null
+  /** Settings access failures are separate from provider-directory failures. */
+  accessError?: SettingsMirrorSnapshot['accessError']
   /** Credential enrichment failure; provider/settings rows remain usable. */
   credentialError: string | null
   /** Whether the settings provider accepts writes. */
@@ -174,28 +176,28 @@ export class ModelsSettingsStore {
   ) {}
 
   /**
-   * Refresh the whole page snapshot: the provider directory and the mirror's
-   * settings answer in parallel, then one batched credential describe over
-   * every referenced ref. Provider failure or absence of an initial settings
-   * answer keeps the last good rows and surfaces an error; a failed settings
-   * refresh reuses the mirror's held view.
+   * Verify settings access, then read the provider directory and batch the
+   * credential descriptions. Access failure clears the previous rows; a provider
+   * failure retains rows without allowing writes. A newer load supersedes an
+   * older answer.
    * @returns nothing; the snapshot carries the outcome.
    */
   async load(): Promise<void> {
     const generation = ++this.generation
-    this.store.update((s) => { s.status = 'loading'; s.error = null })
+    this.store.update((s) => { s.status = 'loading'; s.error = null; s.writable = false; delete s.accessError })
+    await this.describeFace.ensure()
+    if (generation !== this.generation) return
+    const mirrored = this.describeFace.getSnapshot()
+    if (mirrored.view === undefined) {
+      this.failLoad(generation, mirrored.error ?? '', mirrored.accessError ?? 'access-check-failed')
+      return
+    }
     const [registered, declared] = await Promise.all([
       this.ctx.remote.llm.listProviders(),
       this.ctx.remote.llm.listConfigurableProviders(),
-      this.describeFace.ensure(),
     ])
     if (!registered.ok) { this.failLoad(generation, registered.error.message); return }
     if (!declared.ok) { this.failLoad(generation, declared.error.message); return }
-    const mirrored = this.describeFace.getSnapshot()
-    if (mirrored.view === undefined) {
-      this.failLoad(generation, mirrored.error ?? 'settings are unavailable in this browser')
-      return
-    }
     const providers = joinProviderDirectory(registered.value, declared.value)
     const writable = mirrored.view.writable
     const views: readonly SettingsNamespaceView[] = mirrored.view.namespaces
@@ -255,11 +257,17 @@ export class ModelsSettingsStore {
   }
 
   /** Publish one load's failure text, unless a newer load already took over. */
-  private failLoad(generation: number, message: string): void {
+  private failLoad(generation: number, message: string, accessError?: SettingsMirrorSnapshot['accessError']): void {
     if (generation !== this.generation) return
     this.store.update((s) => {
       s.status = 'error'
       s.error = message
+      s.writable = false
+      if (accessError !== undefined) {
+        s.accessError = accessError
+        s.rows = []
+        s.namespaces = new Map()
+      }
     })
   }
 }

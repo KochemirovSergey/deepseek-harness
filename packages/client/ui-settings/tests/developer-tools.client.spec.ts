@@ -21,7 +21,10 @@ describe('developer tools settings', () => {
     const mutate = vi.fn().mockResolvedValue({
       ok: false, error: new RemoteError('settings/rejected', 'conflict', { ns: DEVELOPER_TOOLS_NAMESPACE }),
     })
-    new TestRemote(ctx, { settings: { describe: describeCall, mutate } })
+    new TestRemote(ctx, { settings: {
+      access: async () => ({ ok: true as const, value: { canRead: true, canWrite: true, reason: null } }),
+      describe: describeCall, mutate,
+    } })
     await ctx.plugin({ inject, apply: clientApply }).await()
     await ctx.configForms.describe().ensure()
     await expect(ctx.configForms.developerTools.setEnabled(true)).rejects.toThrow('not saved')
@@ -41,7 +44,10 @@ describe('developer tools settings', () => {
     } }
     const pending = Promise.withResolvers<typeof accepted>()
     onTestFinished(async () => { pending.resolve(accepted); await ctx.fiber.dispose() })
-    new TestRemote(ctx, { settings: { describe: () => pending.promise } })
+    new TestRemote(ctx, { settings: {
+      access: async () => ({ ok: true as const, value: { canRead: true, canWrite: true, reason: null } }),
+      describe: () => pending.promise,
+    } })
     await ctx.plugin({ inject, apply: clientApply }).await()
     const preference = ctx.configForms.developerTools
     const changed = vi.fn()
@@ -57,7 +63,10 @@ describe('developer tools settings', () => {
   it('keeps features disabled when the initial Host read fails', async () => {
     const ctx = new Context()
     onTestFinished(() => ctx.fiber.dispose())
-    new TestRemote(ctx, { settings: { describe: () => Promise.reject(new Error('disconnected')) } })
+    new TestRemote(ctx, { settings: {
+      access: async () => ({ ok: true as const, value: { canRead: true, canWrite: true, reason: null } }),
+      describe: () => Promise.reject(new Error('disconnected')),
+    } })
     await ctx.plugin({ inject, apply: clientApply }).await()
     await ctx.configForms.describe().ensure()
     expect(ctx.configForms.developerTools.enabled.getSnapshot()).toBe(false)
@@ -66,17 +75,26 @@ describe('developer tools settings', () => {
   it('shares one remote-browser preference across consumers and disposes it with the plugin', async () => {
     const ctx = new Context()
     onTestFinished(() => ctx.fiber.dispose())
-    const describeCall = vi.fn()
-    const remote = new TestRemote(ctx, { settings: { describe: describeCall } })
+    const namespace = {
+      ns: DEVELOPER_TOOLS_NAMESPACE, schema: DeveloperToolsSettingsSchema.toJSON(),
+      value: { enabled: false }, revision: 1, applies: 'live', secrets: [],
+    }
+    const access = vi.fn(async () => ({ ok: true as const, value: { canRead: true, canWrite: true, reason: null } }))
+    const describeCall = vi.fn().mockResolvedValue({ ok: true, value: { writable: true, hasDocument: true, namespaces: [namespace] } })
+    const mutate = vi.fn().mockResolvedValue({ ok: true, value: { ...namespace, value: { enabled: true }, revision: 2 } })
+    const remote = new TestRemote(ctx, { settings: { access, describe: describeCall, mutate } })
     remote.$host = { home: undefined, isLoopback: false }
     const fiber = ctx.plugin({ inject, apply: clientApply })
     await fiber.await()
     const preference = ctx.configForms.developerTools
     expect(fiber.ctx.configForms.developerTools.enabled).toBe(preference.enabled)
-    expect(preference.enabled.getSnapshot()).toBe(true)
+    await ctx.configForms.describe().ensure()
+    expect(preference.enabled.getSnapshot()).toBe(false)
     await preference.setEnabled(true)
     expect(fiber.ctx.configForms.developerTools.enabled.getSnapshot()).toBe(true)
-    expect(describeCall).not.toHaveBeenCalled()
+    expect(access).toHaveBeenCalledOnce()
+    expect(describeCall).toHaveBeenCalledOnce()
+    expect(mutate).toHaveBeenCalledWith(DEVELOPER_TOOLS_NAMESPACE, [{ op: 'set', path: ['enabled'], value: true }], 1)
     await fiber.dispose()
     expect(ctx.get('configForms')).toBeUndefined()
   })

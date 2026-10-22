@@ -36,7 +36,10 @@ function rejected<T>(): Answer<T> {
 
 /** The providing plugin's context, scripted down to the settings namespace. */
 function ctxWith(settings: object) {
-  return { remote: { settings } } as never
+  return { remote: { settings: {
+    access: async () => ({ ok: true as const, value: { canRead: true, canWrite: true, reason: null } }),
+    ...settings,
+  } } } as never
 }
 
 function view(value: JsonValue, revision = 0): SettingsNamespaceView {
@@ -85,6 +88,30 @@ function trackValues(scope: ConfigForm<UiTestSettings>): Array<UiTestSettings | 
 }
 
 describe('ConfigFormController', () => {
+  it.each(['accepted', 'rejected'])('discards %s old-generation mutations and queued writes after reconnect', async (outcome) => {
+    const pending = deferred<Answer<SettingsNamespaceView>>()
+    const describeCall = vi.fn()
+      .mockResolvedValueOnce(described({ preference: 'system' }, 1))
+      .mockResolvedValue(described({ preference: 'light' }, 10))
+    const mutate = vi.fn().mockReturnValueOnce(pending.promise)
+    const { mirror, scope } = derivedScope({ describe: describeCall, mutate })
+    await mirror.load()
+    const first = scope.set('preference', 'dark')
+    await vi.waitFor(() => { expect(mutate).toHaveBeenCalledOnce() })
+    const queued = scope.set('preference', 'system')
+    await mirror.reset()
+    expect(scope.getSnapshot()).toMatchObject({ value: { preference: 'light' }, revision: 10, writable: true })
+    pending.resolve(outcome === 'accepted' ? ok(view({ preference: 'dark' }, 2)) : rejected())
+    expect(await first).toBe(false)
+    expect(await queued).toBe(false)
+    expect(mutate).toHaveBeenCalledOnce()
+    expect(describeCall).toHaveBeenCalledTimes(2)
+    expect(scope.getSnapshot()).toMatchObject({ value: { preference: 'light' }, revision: 10, writable: true })
+    mutate.mockResolvedValueOnce(ok(view({ preference: 'dark' }, 11)))
+    expect(await scope.set('preference', 'dark')).toBe(true)
+    expect(mutate).toHaveBeenLastCalledWith('ui-test', [{ op: 'set', path: ['preference'], value: 'dark' }], 10)
+  })
+
   it('starts loading and derives a schema-valid section with revision and writability', async () => {
     const describeCall = vi.fn().mockResolvedValueOnce(described({ preference: 'dark' }, 3))
     const { mirror, scope } = derivedScope({ describe: describeCall })
@@ -97,7 +124,7 @@ describe('ConfigFormController', () => {
     })
   })
 
-  it('keeps the last good value across invalid, rejected, and failed reads while tracking revisions', async () => {
+  it('retains values across invalid reads, disables refused views, and clears transport failures', async () => {
     const describeCall = vi.fn()
       .mockResolvedValueOnce(described({ preference: 'dark' }, 3))
       .mockResolvedValueOnce(described({ preference: 'sepia' }, 4))
@@ -108,11 +135,14 @@ describe('ConfigFormController', () => {
       .mockRejectedValueOnce(new Error('offline'))
     const { mirror, scope } = derivedScope({ describe: describeCall })
     const good = trackValues(scope)
-    for (let i = 0; i < 7; i++) await mirror.load()
+    for (let i = 0; i < 6; i++) await mirror.load()
     expect(scope.getSnapshot()).toMatchObject({
-      status: 'ready', value: { preference: 'dark' }, revision: 7,
+      status: 'ready', value: { preference: 'dark' }, revision: 7, writable: false,
     })
     expect(good).toEqual([undefined, { preference: 'dark' }])
+    await mirror.load()
+    expect(scope.getSnapshot()).toMatchObject({ value: undefined, revision: undefined, writable: false })
+    expect(good).toEqual([undefined, { preference: 'dark' }, undefined])
   })
 
   it('treats a schema envelope it cannot rehydrate as vouching for no section', async () => {
@@ -247,7 +277,7 @@ describe('ConfigFormController', () => {
     expect(sibling.getSnapshot()).toMatchObject({ value: { preference: 'dark' }, revision: 5 })
   })
 
-  it('re-reads after a revisionless first write lands during the initial read', async () => {
+  it('refuses writes until the initial access and document reads grant writability', async () => {
     const initial = deferred<ReturnType<typeof described>>()
     const describeCall = vi.fn()
       .mockReturnValueOnce(initial.promise)
@@ -257,23 +287,25 @@ describe('ConfigFormController', () => {
     const loading = mirror.load()
     await Promise.resolve()
 
-    await scope.set('preference', 'dark')
+    expect(await scope.set('preference', 'dark')).toBe(false)
+    expect(mutate).not.toHaveBeenCalled()
     initial.resolve(described({ preference: 'system' }, 1))
     await loading
 
+    expect(await scope.set('preference', 'dark')).toBe(true)
     expect(mutate).toHaveBeenCalledWith(
       'ui-test',
       [{ op: 'set', path: ['preference'], value: 'dark' }],
-      undefined,
+      1,
     )
-    expect(describeCall).toHaveBeenCalledTimes(2)
+    expect(describeCall).toHaveBeenCalledTimes(1)
     expect(scope.getSnapshot()).toMatchObject({ value: { preference: 'dark' }, revision: 2 })
   })
 
   it('recovers the latest refused write from Host state', async () => {
     const describeCall = vi.fn()
       .mockResolvedValueOnce(described({ preference: 'system' }, 2))
-      .mockResolvedValueOnce(described({ preference: 'light' }, 3))
+      .mockResolvedValue(described({ preference: 'light' }, 3))
     const mutate = vi.fn()
       .mockResolvedValueOnce(rejected())
       .mockResolvedValueOnce(rejected())
@@ -376,8 +408,9 @@ describe('ConfigFormController', () => {
   it('cancels queued and post-dispose writes while draining the in-flight mutation', async () => {
     const first = deferred<Answer<SettingsNamespaceView>>()
     const mutate = vi.fn().mockReturnValue(first.promise)
-    const describeCall = vi.fn()
-    const { scope } = derivedScope({ describe: describeCall, mutate })
+    const describeCall = vi.fn().mockResolvedValue(described({ preference: 'system' }, 0))
+    const { mirror, scope } = derivedScope({ describe: describeCall, mutate })
+    await mirror.load()
     const published = trackValues(scope)
     const dark = scope.set('preference', 'dark')
     await vi.waitFor(() => { expect(mutate).toHaveBeenCalledOnce() })
@@ -390,8 +423,8 @@ describe('ConfigFormController', () => {
     await Promise.all([dark, light, stop])
     await scope.set('preference', 'system')
     expect(mutate).toHaveBeenCalledOnce()
-    expect(describeCall).not.toHaveBeenCalled()
-    expect(published).toEqual([undefined])
+    expect(describeCall).toHaveBeenCalledOnce()
+    expect(published).toEqual([{ preference: 'system' }])
   })
 
   it('stops deriving from the mirror after dispose', async () => {

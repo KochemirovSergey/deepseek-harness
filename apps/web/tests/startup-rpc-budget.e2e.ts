@@ -40,5 +40,7 @@ describe('startup RPC budget', () => {
     await page.waitForTimeout(3000)
     const describeCount = calls.filter(method => method === 'settings/describe').length
     expect(describeCount, `startup /api calls:\n${calls.join('\n')}`).toBe(DESCRIBE_BUDGET)
+    const accessCount = calls.filter(method => method === 'settings/access').length
+    expect(accessCount, `startup /api calls:\n${calls.join('\n')}`).toBe(DESCRIBE_BUDGET)
   })
 })

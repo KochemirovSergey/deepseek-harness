@@ -66,7 +66,7 @@ function mount(
   document.body.append(appRoot)
   const mutate = vi.fn(mutateImpl)
   const api = {
-    settings: {
+    settings: { access: async () => ({ ok: true as const, value: { canRead: true, canWrite: true, reason: null } }),
       describe: () => Promise.resolve(remoteAnswer({
         writable: true,
         hasDocument: false,

@@ -28,6 +28,13 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
   }
 }
 
+/** Settings-page permissions for the authenticated caller of this instance. */
+export interface SettingsAccessValue {
+  readonly canRead: boolean
+  readonly canWrite: boolean
+  readonly reason: 'restricted' | 'provider-unavailable' | 'read-only' | null
+}
+
 /** Confirmation that the settings document was handed to the native editor. */
 export interface SettingsDocumentOpenValue {
   readonly opened: true

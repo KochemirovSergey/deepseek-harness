@@ -10,7 +10,10 @@ function bench() {
     ok: true, value: { writable: true, hasDocument: true, namespaces: [] },
   })
   const ctx = new Context()
-  const remote = new TestRemote(ctx, { settings: { describe: describeCall } })
+  const remote = new TestRemote(ctx, { settings: {
+    access: async () => ({ ok: true as const, value: { canRead: true, canWrite: true, reason: null } }),
+    describe: describeCall,
+  } })
   return { ctx, describeCall, remote, fiber: ctx.plugin({ inject: [...inject], apply }) }
 }
 

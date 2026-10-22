@@ -195,9 +195,11 @@ describe('ui-settings-general apply', () => {
     const { c } = await client(mock, start)
     expect(c.connection.isLoopback).toBe(false)
     expect(ownEntries(c, 'settings.action')).toEqual([])
-    // Off-loopback settings stay process-local: no describe read, so the browser language stands.
-    expect(c.mock.log.calls('settings/describe')).toEqual([])
-    expect(c.ctx.locale.getSnapshot().active).toBe('en')
+    // The remote carrier checks Host access even though native document opening stays local-only.
+    expect(c.mock.log.calls('settings/access').length).toBeGreaterThan(0)
+    expect(c.mock.log.calls('settings/describe').length).toBeGreaterThan(0)
+    expect(c.ctx.configForms.describe().getSnapshot().view?.writable).toBe(true)
+    expect(c.ctx.locale.getSnapshot().active).toBe('zh')
     await c.unload(SELF)
     await c.flush()
     for (const [name] of SEATS) expect(ownEntries(c, name)).toEqual([])

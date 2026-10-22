@@ -65,7 +65,7 @@ export class ConfigFormController<T> implements ConfigForm<T> {
    * namespace carries this form's writes (reads ride the mirror).
    * @param spec - namespace identity and optional narrowing decoder.
    * @param mirror - the shared describe mirror this form derives from.
-   * @param persistence - client-selected Host persistence; non-loopback pages may remain process-local.
+   * @param persistence - explicit Host or process-local persistence, independent of the page hostname.
    * @param schema - settings-owned schema operations.
    */
   constructor(
@@ -134,9 +134,12 @@ export class ConfigFormController<T> implements ConfigForm<T> {
   mutate(ops: readonly SettingsPathOpView[], expectedRevision?: number): Promise<boolean> {
     const ownedOps = structuredClone(ops) as SettingsPathOpView[]
     const generation = ++this.writeGeneration
+    const connectionEpoch = this.mirror.connectionEpoch
     return this.enqueue(async () => {
+      if (connectionEpoch !== this.mirror.connectionEpoch) return false
       const revision = expectedRevision ?? this.pendingRevision ?? this.getSnapshot().revision
       const response = await this.ctx.remote.settings.mutate(this.spec.namespace, ownedOps, revision)
+      if (connectionEpoch !== this.mirror.connectionEpoch) return false
       if (!response.ok) {
         await this.recover(generation)
         return false
@@ -174,7 +177,7 @@ export class ConfigFormController<T> implements ConfigForm<T> {
   private enqueue(operation: () => Promise<boolean>): Promise<boolean> {
     if (this.persistence === 'memory' || this.disposed) return Promise.resolve(false)
     const task = this.tail.then(async () => {
-      if (this.disposed) return false
+      if (this.disposed || this.mirror.getSnapshot().view?.writable !== true) return false
       return await operation()
     })
     // The returned task carries its own settlement to the caller; the queue
@@ -186,7 +189,15 @@ export class ConfigFormController<T> implements ConfigForm<T> {
   private derive(): void {
     if (this.disposed) return
     const mirrored = this.mirror.getSnapshot()
-    if (mirrored.view === undefined) return
+    if (mirrored.view === undefined) {
+      this.pendingRevision = undefined
+      this.store.set({
+        status: mirrored.status === 'unavailable' ? 'unavailable' : 'loading',
+        value: undefined, base: undefined, user: undefined, revision: undefined,
+        writable: false, mode: this.persistence,
+      })
+      return
+    }
     const { writable } = mirrored.view
     const view = mirrored.view.namespaces.find(candidate => candidate.ns === this.spec.namespace)
     if (view === undefined) {

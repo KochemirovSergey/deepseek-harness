@@ -16,9 +16,9 @@ function rejected<T>(message: string): Answer<T> {
   return { ok: false, error: new RemoteError('settings/rejected', message, { ns: 'theme' }) }
 }
 
-/** The providing plugin's context, scripted down to the one method the mirror calls. */
-function ctxWith(describeCall: unknown) {
-  return { remote: { settings: { describe: describeCall } } } as never
+/** The providing plugin's context, with explicit access and document answers. */
+function ctxWith(describeCall: unknown, access = vi.fn().mockResolvedValue(ok({ canRead: true, canWrite: true, reason: null }))) {
+  return { remote: { settings: { access, describe: describeCall } } } as never
 }
 
 function view(ns: string, revision = 0): SettingsNamespaceView {
@@ -36,6 +36,101 @@ function deferred<T>() {
 }
 
 describe('SettingsDescribeMirror', () => {
+  it.each(['restricted', 'provider-unavailable'])('does not describe when access is %s', async (reason) => {
+    const describeCall = vi.fn()
+    const access = vi.fn().mockResolvedValue(ok({ canRead: false, canWrite: false, reason }))
+    const mirror = new SettingsDescribeMirror(ctxWith(describeCall, access))
+    await mirror.ensure()
+    expect(access).toHaveBeenCalledOnce()
+    expect(describeCall).not.toHaveBeenCalled()
+    expect(mirror.getSnapshot()).toMatchObject({ view: undefined, accessError: reason })
+  })
+
+  it('waits for access and honors a read-only grant', async () => {
+    const gate = deferred<Answer<{ canRead: boolean; canWrite: boolean; reason: null }>>()
+    const access = vi.fn().mockReturnValue(gate.promise)
+    const describeCall = vi.fn().mockResolvedValue(described([view('theme')]))
+    const mirror = new SettingsDescribeMirror(ctxWith(describeCall, access))
+    const loading = mirror.load()
+    await vi.waitFor(() => { expect(access).toHaveBeenCalledOnce() })
+    expect(describeCall).not.toHaveBeenCalled()
+    gate.resolve(ok({ canRead: true, canWrite: false, reason: null }))
+    await loading
+    expect(mirror.getSnapshot()).toMatchObject({ status: 'ready', view: { writable: false } })
+    expect(mirror.namespace('theme')).toBeDefined()
+  })
+
+  it.each(['denied', 'refused', 'exception'])('clears an earlier grant after access is %s', async (failure) => {
+    const access = vi.fn().mockResolvedValueOnce(ok({ canRead: true, canWrite: true, reason: null }))
+    if (failure === 'denied') access.mockResolvedValueOnce(ok({ canRead: false, canWrite: false, reason: 'restricted' }))
+    else if (failure === 'refused') access.mockResolvedValueOnce(rejected('unverified'))
+    else access.mockRejectedValueOnce(new Error('offline'))
+    const describeCall = vi.fn().mockResolvedValue(described([view('theme')]))
+    const mirror = new SettingsDescribeMirror(ctxWith(describeCall, access))
+    await mirror.load()
+    expect(mirror.getSnapshot().view?.writable).toBe(true)
+    await mirror.load()
+    expect(mirror.getSnapshot()).toMatchObject({ view: undefined, accessError: failure === 'denied' ? 'restricted' : 'access-check-failed' })
+    expect(describeCall).toHaveBeenCalledOnce()
+  })
+
+  it.each([401, 403])('reports HTTP %s authentication failures without describing', async (status) => {
+    const describeCall = vi.fn()
+    const access = vi.fn().mockRejectedValue(new Error(`Request failed: HTTP ${status}`))
+    const mirror = new SettingsDescribeMirror(ctxWith(describeCall, access))
+    await mirror.ensure()
+    expect(mirror.getSnapshot()).toMatchObject({ status: 'idle', view: undefined, accessError: 'authentication-required' })
+    expect(describeCall).not.toHaveBeenCalled()
+  })
+
+  it.each(['access', 'describe'])('clears a previous grant on a carrier-wrapped authentication error in %s', async (phase) => {
+    const describeCall = vi.fn().mockResolvedValue(described([view('theme')]))
+    const access = vi.fn().mockResolvedValue(ok({ canRead: true, canWrite: true, reason: null }))
+    const mirror = new SettingsDescribeMirror(ctxWith(describeCall, access))
+    await mirror.ensure()
+    const denied = { ok: false, error: new RemoteError('gateway/internal',
+      `client api: settings/${phase} failed: transport failure for /api/settings/${phase}: HTTP 401`, {}) }
+    if (phase === 'access') access.mockResolvedValueOnce(denied)
+    else describeCall.mockResolvedValueOnce(denied)
+    await mirror.load()
+    expect(mirror.getSnapshot()).toMatchObject({ status: 'idle', view: undefined, accessError: 'authentication-required' })
+  })
+
+  it.each(['gateway/invocation-unavailable', 'gateway/method-unavailable'])('requires an upgrade for unsupported access: %s', async (code) => {
+    const describeCall = vi.fn()
+    const access = vi.fn().mockResolvedValue({ ok: false, error: { code, message: 'Unknown method settings/access' } })
+    const mirror = new SettingsDescribeMirror(ctxWith(describeCall, access))
+    await mirror.ensure()
+    await mirror.ensure()
+    expect(mirror.getSnapshot()).toMatchObject({ status: 'unavailable', view: undefined, accessError: 'upgrade-required' })
+    expect(access).toHaveBeenCalledOnce()
+    expect(describeCall).not.toHaveBeenCalled()
+  })
+
+  it.each(['access', 'describe'])('reset rejects a stale %s answer and rechecks access', async (phase) => {
+    const gate = deferred<Answer<SettingsDescribeView>>()
+    const accessGate = deferred<Answer<{ canRead: boolean; canWrite: boolean; reason: string | null }>>()
+    const access = vi.fn().mockResolvedValue(ok({ canRead: true, canWrite: true, reason: null }))
+    const describeCall = vi.fn().mockResolvedValue(described([view('theme', 1)]))
+    const mirror = new SettingsDescribeMirror(ctxWith(describeCall, access))
+    await mirror.load()
+    if (phase === 'access') access.mockReturnValueOnce(accessGate.promise)
+    else describeCall.mockReturnValueOnce(gate.promise)
+    const stale = mirror.load()
+    await vi.waitFor(() => { expect(phase === 'access' ? access : describeCall).toHaveBeenCalledTimes(2) })
+    const seen: SettingsDescribeView[] = []
+    mirror.subscribe(() => { const value = mirror.getSnapshot().view; if (value) seen.push(value) })
+    access.mockResolvedValue(ok({ canRead: false, canWrite: false, reason: 'restricted' }))
+    const reset = mirror.reset()
+    expect(mirror.getSnapshot().view).toBeUndefined()
+    if (phase === 'access') accessGate.resolve(ok({ canRead: true, canWrite: true, reason: null }))
+    else gate.resolve(described([view('theme', 2)]))
+    await Promise.all([stale, reset])
+    expect(seen).toEqual([])
+    expect(access).toHaveBeenCalledTimes(3)
+    expect(mirror.getSnapshot()).toMatchObject({ view: undefined, accessError: 'restricted' })
+  })
+
   it('folds loads before the wire read into it, and mid-flight loads into one rerun', async () => {
     const gate = deferred<Answer<SettingsDescribeView>>()
     const describeCall = vi.fn()
@@ -45,7 +140,7 @@ describe('SettingsDescribeMirror', () => {
     const first = mirror.load()
     // Issued before the wire read goes out: covered by that read, no rerun.
     const early = mirror.load()
-    await Promise.resolve()
+    await vi.waitFor(() => { expect(describeCall).toHaveBeenCalled() })
     expect(describeCall).toHaveBeenCalledTimes(1)
     // Issued while the read is on the wire: exactly one rerun, however many.
     const mid = mirror.load()
@@ -57,20 +152,19 @@ describe('SettingsDescribeMirror', () => {
     expect(mirror.namespace('theme')?.revision).toBe(1)
   })
 
-  it('keeps the last good view when a later refresh fails, recording the failure', async () => {
+  it('keeps a read-only view after describe refusal but clears it after an exception', async () => {
     const describeCall = vi.fn()
       .mockResolvedValueOnce(described([view('theme', 2)]))
-      .mockRejectedValueOnce(new Error('host gone'))
       .mockResolvedValueOnce(rejected('busy'))
+      .mockRejectedValueOnce(new Error('host gone'))
     const mirror = new SettingsDescribeMirror(ctxWith(describeCall))
     await mirror.load()
     expect(mirror.getSnapshot()).toMatchObject({ status: 'ready', error: null })
     await mirror.load()
-    expect(mirror.getSnapshot()).toMatchObject({ status: 'ready', error: 'host gone' })
+    expect(mirror.getSnapshot()).toMatchObject({ status: 'ready', error: 'busy', view: { writable: false } })
     expect(mirror.namespace('theme')?.revision).toBe(2)
     await mirror.load()
-    expect(mirror.getSnapshot()).toMatchObject({ status: 'ready', error: 'busy' })
-    expect(mirror.getSnapshot().view?.namespaces).toHaveLength(1)
+    expect(mirror.getSnapshot()).toMatchObject({ status: 'idle', error: 'host gone', view: undefined, accessError: 'access-check-failed' })
   })
 
   it('returns to idle after a first read that never succeeded, so ensure retries', async () => {
@@ -158,7 +252,7 @@ describe('SettingsDescribeMirror', () => {
       void mirror.load()
     })
     const loading = mirror.load()
-    await Promise.resolve()
+    await vi.waitFor(() => { expect(describeCall).toHaveBeenCalled() })
     expect(describeCall).toHaveBeenCalledTimes(1)
     gate.resolve(described([view('theme', 1)]))
     await loading
@@ -193,7 +287,7 @@ describe('SettingsDescribeMirror', () => {
     await mirror.load()
     expect(describeCall).toHaveBeenCalledTimes(1)
     const stale = mirror.load()
-    await Promise.resolve()
+    await vi.waitFor(() => { expect(describeCall).toHaveBeenCalledTimes(2) })
     mirror.acceptView(view('theme', 5))
     slow.resolve(described([view('theme', 4), view('locale', 2)]))
     await stale
@@ -209,7 +303,7 @@ describe('SettingsDescribeMirror', () => {
       .mockResolvedValueOnce(described([view('theme', 2)]))
     const mirror = new SettingsDescribeMirror(ctxWith(describeCall))
     const loading = mirror.load()
-    await Promise.resolve()
+    await vi.waitFor(() => { expect(describeCall).toHaveBeenCalled() })
     mirror.acceptView(view('theme', 2))
     slow.resolve(described([view('theme', 1)]))
     await loading

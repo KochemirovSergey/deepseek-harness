@@ -16,9 +16,16 @@ describe('settings Remote', () => {
     const { ctx, controller } = await boot()
     expect(controller.typertRemote.namespace).toBe('settings')
     expect(remoteMethods(controller).map(method => method.method)).toEqual([
-      'describe', 'update', 'replace', 'mutate', 'openSettingsDocument',
+      'access', 'describe', 'update', 'replace', 'mutate', 'openSettingsDocument',
     ])
     expect(ctx.get('credentialsController')).toBeDefined()
+  })
+
+  it('reports writable and read-only settings without returning configuration', async () => {
+    const { ctx, controller } = await boot()
+    expect(controller.access()).toEqual({ canRead: true, canWrite: true, reason: null })
+    vi.spyOn(ctx.settings, 'writable', 'get').mockReturnValue(false)
+    expect(controller.access()).toEqual({ canRead: true, canWrite: false, reason: 'read-only' })
   })
 
   it('redacts every described layer and applies mutations through the consumer', async () => {
@@ -41,6 +48,7 @@ describe('settings Remote', () => {
     const ctx = new Context()
     onTestFinished(() => ctx.fiber.dispose())
     const controller = new SettingsController(ctx)
+    expect(controller.access()).toEqual({ canRead: false, canWrite: false, reason: 'provider-unavailable' })
     expect(() => controller.describe()).toThrow('settings service is absent')
     const failure = await controller.update('missing', {}, undefined).catch((error: unknown) => error)
     expect(remoteErrorOf(failure)?.code).toBe('gateway/internal')

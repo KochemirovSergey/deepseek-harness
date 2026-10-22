@@ -26,7 +26,7 @@ export interface SettingsDescribeView {
 /** Mirror state every derived settings surface renders from. */
 export interface SettingsMirrorSnapshot {
   /**
-   * `unavailable` is the terminal non-loopback state; `ready` persists across
+   * `unavailable` means settings-page access is denied; `ready` persists across
    * later failed refreshes (the held view keeps serving); `idle` means no
    * answer is held and no read is running, so `ensure` will start one.
    */
@@ -35,6 +35,8 @@ export interface SettingsMirrorSnapshot {
   view: SettingsDescribeView | undefined
   /** The latest refresh failure message, cleared by the next success. */
   error: string | null
+  /** Stable page-access diagnosis; translated by the consuming UI. */
+  accessError?: 'restricted' | 'provider-unavailable' | 'upgrade-required' | 'authentication-required' | 'access-check-failed'
 }
 
 /**
@@ -75,11 +77,15 @@ export class SettingsDescribeMirror implements SettingsDescribeFace {
   private inFlight: Promise<void> | undefined
   private rerun = false
   private generation = 0
+  private resetEpoch = 0
+
+  /** Connection epoch used to discard queued writes and replies across resets. */
+  get connectionEpoch(): number { return this.resetEpoch }
 
   /**
    * @param ctx - the providing plugin's context, whose `remote.settings`
    * namespace answers the describe read.
-   * @param persistence - client-selected Host persistence; non-loopback pages may remain process-local.
+   * @param persistence - explicit Host or process-local persistence, independent of the page hostname.
    */
   constructor(
     private readonly ctx: ClientContext,
@@ -121,6 +127,17 @@ export class SettingsDescribeMirror implements SettingsDescribeFace {
     const run = Promise.resolve().then(() => this.run())
     this.inFlight = run
     return run
+  }
+
+  /** Recheck access after reconnection without retaining the previous Host view.
+   * @returns settlement of the new access and settings read.
+   */
+  reset(): Promise<void> {
+    if (this.persistence === 'memory') return Promise.resolve()
+    this.resetEpoch += 1
+    this.generation += 1
+    this.store.set({ status: 'idle', view: undefined, error: null })
+    return this.load()
   }
 
   /**
@@ -178,32 +195,60 @@ export class SettingsDescribeMirror implements SettingsDescribeFace {
         // rerun.
         this.rerun = false
         const generation = ++this.generation
-        let outcome: { view: SettingsDescribeView } | { failure: string }
-        try {
-          const response = await this.ctx.remote.settings.describe()
-          outcome = response.ok
-            ? { view: response.value }
-            : { failure: response.error.message }
-        } catch (error) {
-          outcome = { failure: error instanceof Error ? error.message : String(error) }
-        }
+        const outcome = await this.read()
         // A write answer invalidates a document read before that write committed.
         if (generation !== this.generation) continue
         if ('view' in outcome) {
           this.store.set({ status: 'ready', view: outcome.view, error: null })
+        } else if (outcome.accessError !== undefined) {
+          // A refused or unverified access check never keeps a previous grant.
+          this.store.set({
+            status: outcome.accessError === 'restricted' || outcome.accessError === 'upgrade-required' ? 'unavailable' : 'idle',
+            view: undefined,
+            error: outcome.failure,
+            accessError: outcome.accessError,
+          })
         } else {
           const held = this.store.getSnapshot()
-          // No answer yet: fall back to idle so `ensure` retries; with one, the
-          // held view keeps serving and only the error field reports the miss.
           this.store.set({
             status: held.view === undefined ? 'idle' : 'ready',
-            view: held.view,
+            view: held.view === undefined ? undefined : { ...held.view, writable: false },
             error: outcome.failure,
           })
         }
       } while (this.shouldRerun())
     } finally {
       this.inFlight = undefined
+    }
+  }
+
+  private async read(): Promise<
+    { view: SettingsDescribeView }
+    | { failure: string; accessError?: SettingsMirrorSnapshot['accessError'] }
+  > {
+    try {
+      const access = await this.ctx.remote.settings.access()
+      if (!access.ok) return {
+        failure: access.error.message,
+        accessError: /HTTP (401|403)$/.test(access.error.message) ? 'authentication-required'
+          : access.error.code === 'gateway/invocation-unavailable' || access.error.code === 'gateway/method-unavailable'
+            ? 'upgrade-required' : 'access-check-failed',
+      }
+      if (!access.value.canRead) return {
+        failure: '',
+        accessError: access.value.reason === 'restricted' ? 'restricted' : 'provider-unavailable',
+      }
+      const response = await this.ctx.remote.settings.describe()
+      return response.ok
+        ? { view: { ...response.value, writable: access.value.canWrite && response.value.writable } }
+        : {
+          failure: response.error.message,
+          .../HTTP (401|403)$/.test(response.error.message) ? { accessError: 'authentication-required' as const } : {},
+        }
+    } catch (error) {
+      const failure = error instanceof Error ? error.message : String(error)
+      // The HTTP carrier currently reports authentication failures as Error text.
+      return { failure, accessError: /HTTP (401|403)$/.test(failure) ? 'authentication-required' : 'access-check-failed' }
     }
   }
 

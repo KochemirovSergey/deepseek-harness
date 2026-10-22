@@ -206,7 +206,7 @@ function scriptedFace(overrides: {
       ].map(({ active: _active, ...entry }) => entry)))),
       discoverModels: vi.fn(() => Promise.resolve(remoteOk([]))),
     },
-    settings: {
+    settings: { access: async () => ({ ok: true as const, value: { canRead: true, canWrite: true, reason: null } }),
       describe: vi.fn(() => Promise.resolve(remoteOk({ writable: true, hasDocument: false, namespaces: wireNamespaces() }))),
       update,
       mutate,
@@ -1415,6 +1415,32 @@ describe('ModelsSection', () => {
       expect(screen.queryByRole('dialog', { name: openaiCopy(en.deleteTitle) })).toBeNull()
     })
   })
+
+  it.each(['restricted', 'provider-unavailable', 'upgrade-required', 'authentication-required', 'access-check-failed'] as const)(
+    'renders %s without a provider-directory failure prefix', async (accessError) => {
+      const { face } = scriptedFace()
+      const mirror = new SettingsDescribeMirror(ctxWith(face))
+      const controller = new ModelsSettingsStore(ctxWith(face), settingsSchema, mirror)
+      controller.store.update((state) => {
+        state.status = 'error'
+        state.accessError = accessError
+        state.error = 'wire details'
+      })
+      render(<ModelsSection
+        controller={controller}
+        useSnapshot={bindSnapshotSelector(controller.store)}
+        operations={operationsWith(face)}
+        schema={settingsSchema}
+        t={t}
+        renderSlot={() => null}
+      />)
+      expect(screen.getByText(en[accessError])).toBeTruthy()
+      expect(screen.queryByText(new RegExp(en.loadFailed))).toBeNull()
+      expect(screen.queryByText(/wire details/)).toBeNull()
+      expect(screen.queryByRole('button', { name: en.add })).toBeNull()
+      expect(face.llm.listProviders).not.toHaveBeenCalled()
+    },
+  )
 
   it('renders the load failure with a retry control', async () => {
     const face = scriptedFace()

@@ -43,7 +43,10 @@ function buildWelcome(
   api: { describe?: ReturnType<typeof vi.fn>; mutate?: ReturnType<typeof vi.fn> },
   persistence: 'host' | 'memory' = 'host',
 ) {
-  const ctx = { remote: { settings: api } } as never
+  const ctx = { remote: { settings: {
+    access: async () => ({ ok: true as const, value: { canRead: true, canWrite: true, reason: null } }),
+    ...api,
+  } } } as never
   const mirror = new SettingsDescribeMirror(ctx, persistence)
   const scope = new ConfigFormController(
     ctx,

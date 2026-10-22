@@ -26,7 +26,10 @@ async function bench(served?: string[]) {
   const describeSettings = vi.fn(() => Promise.resolve(served === undefined
     ? { ok: false, error: new RemoteError('gateway/internal', 'no provider', {}) }
     : { ok: true, value: { writable: true, hasDocument: true, namespaces: served.map(ns => view(ns)) } }))
-  const remote = new TestRemote(ctx, { settings: { describe: describeSettings } })
+  const remote = new TestRemote(ctx, { settings: {
+    access: async () => ({ ok: true, value: { canRead: true, canWrite: true, reason: null } }),
+    describe: describeSettings,
+  } })
   await ctx.plugin({ inject: [...settingsInject], apply: settingsApply }).await()
   return { ctx, slots: ctx.get('slots') as SlotRegistry, describeSettings, remote }
 }

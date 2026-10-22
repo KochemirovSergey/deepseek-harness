@@ -51,7 +51,7 @@ async function harness(options: {
     revision++
     return { ok: true, value: namespace(ns) }
   })
-  const ctx = { remote: { settings: {
+  const ctx = { remote: { settings: { access: async () => ({ ok: true as const, value: { canRead: true, canWrite: true, reason: null } }),
     describe: async () => {
       await options.waitSettings
       if (options.failRead?.()) throw new Error('temporary describe failure')

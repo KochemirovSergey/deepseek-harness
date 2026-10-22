@@ -19,7 +19,10 @@ it('adds the last General row only while served and removes all contributions on
       writable: true, hasDocument: true,
       namespaces: [] as { ns: string; schema: object; value: object; applies: 'live'; secrets: never[]; revision: number }[],
     } }))
-    const remote = new TestRemote(ctx, { settings: { describe } })
+    const remote = new TestRemote(ctx, { settings: {
+      access: async () => ({ ok: true, value: { canRead: true, canWrite: true, reason: null } }),
+      describe,
+    } })
     await ctx.plugin({ inject: [...settingsInject], apply: settingsApply }).await()
     const slots = ctx.get('slots') as SlotRegistry
     slots.register({ name: 'root', children: {
