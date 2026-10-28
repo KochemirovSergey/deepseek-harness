@@ -92,16 +92,16 @@ describe('GuideBody', () => {
       title: () => 'Workspace files' }
     const apps = { ...box('applications', 20, undefined, 'Embedded applications'), title: () => 'Приложения' }
     const { view, guideEntries, openTab } = mountGuide([files, apps], undefined, [shortcut])
-    const fileButton = view.getByRole('button', { name: 'Workspace files', exact: true })
+    const fileButton = view.getByRole('button', { name: 'Workspace files' })
     expect(fileButton.getAttribute('aria-keyshortcuts')).toBe(aria ?? null)
     expect(fileButton.textContent).toBe(`Workspace filesBrowse workspace${keys.join('')}`)
-    expect(view.getByRole('button', { name: 'Приложения', exact: true })).toBeTruthy()
+    expect(view.getByRole('button', { name: 'Приложения' })).toBeTruthy()
     act(() => { guideEntries.set([files, apps, box('a', 30), box('b', 40), box('c', 50)]) })
-    expect(view.getByRole('button', { name: 'Workspace files', exact: true })).toBe(fileButton)
+    expect(view.getByRole('button', { name: 'Workspace files' })).toBe(fileButton)
     expect(fileButton.textContent).toBe(`Workspace files${keys.join('')}`)
     fireEvent.click(fileButton)
     expect(openTab).toHaveBeenCalledWith('files', { replaceTab: true })
-    fireEvent.click(view.getByRole('button', { name: 'Приложения', exact: true }))
+    fireEvent.click(view.getByRole('button', { name: 'Приложения' }))
     expect(openTab).toHaveBeenCalledWith('applications', { replaceTab: true })
   })
   it('shows configured guide bindings and omits cleared key labels', () => {
