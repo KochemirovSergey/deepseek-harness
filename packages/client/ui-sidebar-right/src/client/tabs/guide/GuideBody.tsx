@@ -58,6 +58,7 @@ function EntryBox({ entry, described, onPick, shortcut }: {
       type="button"
       className={css.entry}
       data-sidebar-right-guide-entry={entry.kind}
+      aria-label={entry.title()}
       aria-keyshortcuts={shortcut?.aria}
       onClick={() => { onPick(entry) }}
     >

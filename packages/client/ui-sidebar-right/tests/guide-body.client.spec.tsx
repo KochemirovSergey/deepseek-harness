@@ -81,6 +81,29 @@ function mountGuide(entries: readonly SidebarRightGuideBox[], custom?: (key: str
 }
 
 describe('GuideBody', () => {
+  it.each([
+    { keys: ['Ctrl', 'Alt', 'P'], aria: 'Control+Alt+P' },
+    { keys: ['⌥', '⌘', 'P'], aria: 'Alt+Meta+P' },
+    { keys: [], aria: undefined },
+  ])('keeps entry names stable across descriptions and shortcuts: $keys', ({ keys, aria }) => {
+    const shortcut: ShortcutCatalogEntry = { id: 'workspace.files' as never, label: 'Files', aliases: [],
+      binding: null, keys, aria, modified: true, conflicts: [], issue: null }
+    const files = { ...box('files', 10, undefined, 'Browse workspace'), commandId: shortcut.id,
+      title: () => 'Workspace files' }
+    const apps = { ...box('applications', 20, undefined, 'Embedded applications'), title: () => 'Приложения' }
+    const { view, guideEntries, openTab } = mountGuide([files, apps], undefined, [shortcut])
+    const fileButton = view.getByRole('button', { name: 'Workspace files', exact: true })
+    expect(fileButton.getAttribute('aria-keyshortcuts')).toBe(aria ?? null)
+    expect(fileButton.textContent).toBe(`Workspace filesBrowse workspace${keys.join('')}`)
+    expect(view.getByRole('button', { name: 'Приложения', exact: true })).toBeTruthy()
+    act(() => { guideEntries.set([files, apps, box('a', 30), box('b', 40), box('c', 50)]) })
+    expect(view.getByRole('button', { name: 'Workspace files', exact: true })).toBe(fileButton)
+    expect(fileButton.textContent).toBe(`Workspace files${keys.join('')}`)
+    fireEvent.click(fileButton)
+    expect(openTab).toHaveBeenCalledWith('files', { replaceTab: true })
+    fireEvent.click(view.getByRole('button', { name: 'Приложения', exact: true }))
+    expect(openTab).toHaveBeenCalledWith('applications', { replaceTab: true })
+  })
   it('shows configured guide bindings and omits cleared key labels', () => {
     for (const keys of [['Ctrl', 'P'], []]) {
       const entry: ShortcutCatalogEntry = { id: 'workspace.files' as never, label: 'Files', aliases: [],
